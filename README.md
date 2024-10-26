@@ -29,6 +29,7 @@ This project provides a class `GlobalLogicJobScraper` for scraping job offers fr
     ```bash
     git clone ...
     ```
+    
     2.	Install the required dependencies:
 
     ```bash
