@@ -5,8 +5,8 @@ from scrapers.gb_lg_jobs_scraper import GlobalLogicJobScraper
 
 load_dotenv()
 
-TOKEN = os.getenv("telegram_token")
-CHAT_ID = os.getenv("chat_id")
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 scraper_0_1 = GlobalLogicJobScraper(
     csv_file="./csv_files/gl_logic_0_1.csv",
