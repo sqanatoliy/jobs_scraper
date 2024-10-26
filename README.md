@@ -26,24 +26,24 @@ This project provides a class `GlobalLogicJobScraper` for scraping job offers fr
 ## Installation
 	1.	Clone the repository:
 
-        ```bash
-        git clone ...
-        ```
+    ```bash
+    git clone ...
+    ```
     2.	Install the required dependencies:
 
-        ```bash
-        pip install -r requirements.txt
-        ```
+    ```bash
+    pip install -r requirements.txt
+    ```
 
     3.	Set up your .env file with the following variables:
 
-        ```yml
-        telegram_token=YOUR_TELEGRAM_BOT_TOKEN
-        chat_id=YOUR_CHAT_ID
-        ```
+    ```yml
+    telegram_token=YOUR_TELEGRAM_BOT_TOKEN
+    chat_id=YOUR_CHAT_ID
+    ```
 
-        Replace YOUR_TELEGRAM_BOT_TOKEN and YOUR_CHAT_ID with the token for your Telegram bot 
-        and the chat ID of your Telegram group or channel.
+    Replace YOUR_TELEGRAM_BOT_TOKEN and YOUR_CHAT_ID with the token for your Telegram bot 
+    and the chat ID of your Telegram group or channel.
 
 ## Usage
 
