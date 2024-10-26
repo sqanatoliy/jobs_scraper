@@ -10,12 +10,11 @@ Dependencies:
     - re
 """
 
-import os
-import re
 import csv
+import re
+
 import requests
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
 
 
 class GlobalLogicJobScraper:
@@ -203,54 +202,3 @@ class GlobalLogicJobScraper:
                 print("Job sent to Telegram successfully!")
             else:
                 print("Failed to send job to Telegram:", response.json().get("description"))
-
-
-if __name__ == "__main__":
-    load_dotenv()
-    TOKEN = os.getenv("telegram_token")
-    CHAT = os.getenv("chat_id")
-
-    # Example usage for job offers with 0-1 years experience
-    scraper_0_1 = GlobalLogicJobScraper(
-        "gl_logic_0_1.csv",
-        telegram_token=TOKEN,
-        chat_id=CHAT,
-        keywords="python",
-        experience="0-1+years",
-        locations="ukraine",
-    )
-    job_offers_0_1 = scraper_0_1.get_list_jobs()
-    new_jobs_0_1 = scraper_0_1.check_and_add_jobs(job_offers_0_1)
-
-    # Example usage for job offers with 1-3 years experience
-    scraper_1_3 = GlobalLogicJobScraper(
-        "gl_logic_1_3.csv",
-        telegram_token=TOKEN,
-        chat_id=CHAT,
-        keywords="python",
-        experience="1-3+years",
-        locations="ukraine",
-    )
-    job_offers_1_3 = scraper_1_3.get_list_jobs()
-    new_jobs_1_3 = scraper_1_3.check_and_add_jobs(job_offers_1_3)
-
-    # Output new job offers added to the file
-    if new_jobs_0_1:
-        print()
-        print("Constructed URL for scraping: ", scraper_0_1.full_url)
-        print("New job offers added to the file:", new_jobs_0_1)
-        scraper_0_1.send_new_jobs_to_telegram(new_jobs_0_1)
-    else:
-        print()
-        print("Constructed URL for scraping: ", scraper_0_1.full_url)
-        print("No new job offers available.")
-
-    if new_jobs_1_3:
-        print()
-        print("Constructed URL for scraping: ", scraper_1_3.full_url)
-        print("New job offers added to the file:", new_jobs_1_3)
-        scraper_1_3.send_new_jobs_to_telegram(new_jobs_1_3)
-    else:
-        print()
-        print("Constructed URL for scraping: ", scraper_1_3.full_url)
-        print("No new job offers available.")
