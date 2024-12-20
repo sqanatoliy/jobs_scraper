@@ -11,15 +11,15 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3
       with:
         python-version: '3.11'
 
     - name: Download CSV files
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       with:
         name: csv-files
         path: ./csv_files
@@ -36,7 +36,7 @@ jobs:
       run: python main.py
 
     - name: Upload CSV files
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: csv-files
         path: ./csv_files
