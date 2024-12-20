@@ -23,8 +23,10 @@ jobs:
       id: csv-cache
       with:
         path: ./csv_files
-        key: csv-cache-${{ github.run_id }}
-    
+        key: csv-cache-${{ runner.os }}-${{ hashFiles('**/csv_files/*.csv') }}
+        restore-keys: |
+          csv-cache-${{ runner.os }}
+
     - name: Ensure CSV directory exists
       run: mkdir -p ./csv_files
 
@@ -44,4 +46,4 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ./csv_files
-        key: csv-cache-${{ github.run_id }}
+        key: csv-cache-${{ runner.os }}-${{ hashFiles('**/csv_files/*.csv') }}
