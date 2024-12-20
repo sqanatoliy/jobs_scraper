@@ -8,13 +8,18 @@ Dependencies:
     - BeautifulSoup (from bs4)
     - csv
     - re
+    - logging
 """
 
 import csv
 import re
+import logging
+from typing import List, Dict, Optional
 
 import requests
 from bs4 import BeautifulSoup
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class GlobalLogicJobScraper:
@@ -34,16 +39,16 @@ class GlobalLogicJobScraper:
 
     def __init__(
         self,
-        csv_file,
-        telegram_token,
-        chat_id,
-        keywords="",
-        experience="",
-        locations="",
-        freelance=None,
-        remote=None,
-        hybrid=None,
-        on_site=None,
+        csv_file: str,
+        telegram_token: str,
+        chat_id: str,
+        keywords: str = "",
+        experience: str = "",
+        locations: str = "",
+        freelance: Optional[bool] = None,
+        remote: Optional[bool] = None,
+        hybrid: Optional[bool] = None,
+        on_site: Optional[bool] = None,
     ):
         """
         Initializes the GlobalLogicJobScraper with search parameters for job filtering.
@@ -79,8 +84,7 @@ class GlobalLogicJobScraper:
             str: The constructed full URL with specified filters.
         """
         url = (
-            self.base_url
-            + f"keywords={self.keywords}&experience={self.experience}&locations={self.locations}&c="
+            f"{self.base_url}keywords={self.keywords}&experience={self.experience}&locations={self.locations}&c="
         )
         if self.freelance:
             url += "&freelance=yes"
@@ -97,7 +101,7 @@ class GlobalLogicJobScraper:
 
         return url
 
-    def get_list_jobs(self) -> list:
+    def get_list_jobs(self) -> List[Dict[str, Optional[str]]]:
         """
         Retrieves job offers by scraping the GlobalLogic career page based on initialized filters.
 
@@ -107,10 +111,8 @@ class GlobalLogicJobScraper:
                 - "link" (str): URL to the job listing.
                 - "requirements" (str or None): Job requirements or None if unavailable.
         """
-
         job_offers_list = []
 
-        # Scraping job offers from the constructed URL
         try:
             response = requests.get(self.full_url)
             response.raise_for_status()
@@ -135,11 +137,11 @@ class GlobalLogicJobScraper:
                     )
 
         except requests.RequestException as e:
-            print("Error retrieving data from the site:", e)
+            logging.error("Error retrieving data from the site: %s", e)
 
         return job_offers_list
 
-    def check_and_add_jobs(self, job_offers_lst: list) -> list:
+    def check_and_add_jobs(self, job_offers_lst: List[Dict[str, Optional[str]]]) -> List[Dict[str, Optional[str]]]:
         """
         Checks if each job offer already exists in the CSV file based on the job title.
         If a job offer is not found, it is added to the file.
@@ -153,21 +155,18 @@ class GlobalLogicJobScraper:
         existing_titles = set()
         new_jobs_lst = []
 
-        # Read existing job titles from CSV file
         try:
             with open(self.csv_file, mode="r", newline="", encoding="utf-8") as file:
                 reader = csv.DictReader(file)
                 if reader.fieldnames and "title" in reader.fieldnames:
                     existing_titles = {row["title"] for row in reader}
         except FileNotFoundError:
-            # File will be created if not found
             pass
 
-        # Check for new jobs and add them to the CSV file if needed
         with open(self.csv_file, mode="a", newline="", encoding="utf-8") as file:
             writer = csv.DictWriter(file, fieldnames=["title", "link", "requirements"])
             if file.tell() == 0:
-                writer.writeheader()  # Write header if file is empty
+                writer.writeheader()
 
             for job in job_offers_lst:
                 if job["title"] not in existing_titles:
@@ -176,9 +175,9 @@ class GlobalLogicJobScraper:
 
         return new_jobs_lst
 
-    def send_new_jobs_to_telegram(self, new_jobs: list) -> None:
+    def send_new_jobs_to_telegram(self, new_jobs: List[Dict[str, Optional[str]]]) -> None:
         """
-        Send new job offers to  Telegram-chat.
+        Send new job offers to Telegram chat.
 
         Args:
             new_jobs (list): List of vacancies for sending.
@@ -196,9 +195,9 @@ class GlobalLogicJobScraper:
                 "text": message,
                 "parse_mode": "Markdown"
             }
-            response = requests.post(base_url, data=payload)
-
-            if response.status_code == 200:
-                print("Job sent to Telegram successfully!")
-            else:
-                print("Failed to send job to Telegram:", response.json().get("description"))
+            try:
+                response = requests.post(base_url, data=payload, timeout=10)
+                response.raise_for_status()
+                logging.info("Job sent to Telegram successfully!")
+            except requests.RequestException as e:
+                logging.error("Failed to send job to Telegram: %s", e)
