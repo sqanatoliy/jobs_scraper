@@ -2,8 +2,8 @@ name: Run Job Scraper Hourly
 
 on:
   schedule:
-    - cron: '0 * * * *' # Run every hour
-  workflow_dispatch: # Allow manual runs
+    - cron: '0 * * * *' # Запуск щогодини
+  workflow_dispatch: # Дозволяє вручну запускати робочий процес
 
 jobs:
   run_scraper:
@@ -18,15 +18,15 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Create CSV directory
-      run: mkdir -p csv_files
-
-    - name: Download CSV files (if available)
-      uses: actions/download-artifact@v3
+    - name: Restore cached CSV files
+      uses: actions/cache@v3
+      id: csv-cache
       with:
-        name: csv-files
         path: ./csv_files
-      continue-on-error: true # Avoid failing if no artifact is found
+        key: csv-cache-${{ github.run_id }}
+    
+    - name: Ensure CSV directory exists
+      run: mkdir -p ./csv_files
 
     - name: Install dependencies
       run: |
@@ -39,8 +39,9 @@ jobs:
         CHAT_ID: ${{ secrets.CHAT_ID }}
       run: python main.py
 
-    - name: Upload updated CSV files
-      uses: actions/upload-artifact@v3
+    - name: Update cache with new CSV files
+      if: always()
+      uses: actions/cache@v3
       with:
-        name: csv-files
         path: ./csv_files
+        key: csv-cache-${{ github.run_id }}
