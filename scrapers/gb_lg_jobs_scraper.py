@@ -114,7 +114,7 @@ class GlobalLogicJobScraper:
         job_offers_list = []
 
         try:
-            response = requests.get(self.full_url)
+            response = requests.get(self.full_url, timeout=30)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
             job_cards = soup.select("div.career-pagelink")
