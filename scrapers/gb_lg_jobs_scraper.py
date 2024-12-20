@@ -12,6 +12,7 @@ Dependencies:
 """
 
 import csv
+import os
 import re
 import logging
 from typing import List, Dict, Optional
@@ -75,6 +76,9 @@ class GlobalLogicJobScraper:
         self.hybrid = hybrid
         self.on_site = on_site
         self.full_url = self._construct_full_url()
+        # Ensure the CSV directory exists
+        if not os.path.exists(os.path.dirname(self.csv_file)):
+            os.makedirs(os.path.dirname(self.csv_file))
 
     def _construct_full_url(self) -> str:
         """
