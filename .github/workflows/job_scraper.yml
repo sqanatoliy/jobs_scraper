@@ -18,11 +18,15 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Download CSV files
+    - name: Create CSV directory
+      run: mkdir -p csv_files
+
+    - name: Download CSV files (if available)
       uses: actions/download-artifact@v3
       with:
         name: csv-files
         path: ./csv_files
+      continue-on-error: true # Avoid failing if no artifact is found
 
     - name: Install dependencies
       run: |
@@ -35,7 +39,7 @@ jobs:
         CHAT_ID: ${{ secrets.CHAT_ID }}
       run: python main.py
 
-    - name: Upload CSV files
+    - name: Upload updated CSV files
       uses: actions/upload-artifact@v3
       with:
         name: csv-files
