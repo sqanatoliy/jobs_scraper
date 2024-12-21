@@ -197,7 +197,8 @@ class GlobalLogicJobScraper:
             payload = {
                 "chat_id": self.chat_id,
                 "text": message,
-                "parse_mode": "Markdown"
+                "parse_mode": "Markdown",
+                "disable_web_page_preview": True,
             }
             try:
                 response = requests.post(base_url, data=payload, timeout=10)
