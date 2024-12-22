@@ -3,3 +3,4 @@ venv
 .idea
 .vscode
 __pycache__/
+scrapers/__pycache__/gb_lg_jobs_scraper.cpython-311.pyc
