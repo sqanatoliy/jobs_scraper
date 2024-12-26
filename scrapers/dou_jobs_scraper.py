@@ -36,6 +36,10 @@ class DouJobScraper:
         city (str): Location to filter job offers.
         remote (bool): Filter for remote job offers.
         relocation (bool): Filter for relocation job offers.
+        no_exp (bool): If True, scrapes jobs from the "Без досвіду" page.
+
+        With "no_exp" parameter only "city" filter works 
+        for example: remote, kyiv, lviv, lutsk, etc. https://jobs.dou.ua/first-job/?city=remote
     """
 
     def __init__(
@@ -43,11 +47,12 @@ class DouJobScraper:
         telegram_token: str,
         chat_id: str,
         csv_file: str,
-        category: str,
+        category: str = None,
         experience: str = None,
         city: str = None,
         remote: bool = False,
         relocation: bool = False,
+        no_exp: bool = False, # With "no_exp" parameter only "city" filter works (remote, kyiv, lviv, lutsk, etc.)
     ) -> None:
         """
         Initializes the DouJobScraper with search parameters for job filtering.
@@ -59,8 +64,8 @@ class DouJobScraper:
             city (str): Location filter: Київ, Львів, Одеса etc.
             remote (bool): Filter for remote jobs: remote.
             relocation (bool): Filter for relocation jobs: relocation.
+            no_exp (bool): If True, scrapes jobs from the "Без досвіду" page.
         """
-        self.base_url = "https://jobs.dou.ua/vacancies/?"
         self.csv_file: str = csv_file
         self.telegram_token = telegram_token
         self.chat_id: str = chat_id
@@ -69,6 +74,12 @@ class DouJobScraper:
         self.city: str = city   # Київ, Львів, Одеса etc.
         self.remote: bool = remote   # remote
         self.relocation: bool = relocation   # relocation
+        self.no_exp: bool = no_exp   # Scrape "Без досвіду" jobs
+
+        # Select base URL based on the `no_exp` flag
+        self.base_url: str = "https://jobs.dou.ua/vacancies/?"
+        if self.no_exp:
+            self.base_url = "https://jobs.dou.ua/first-job/?"
         self.full_url: str = self._construct_full_url()
         # Ensure the CSV directory exists
         os.makedirs(os.path.dirname(self.csv_file), exist_ok=True)
@@ -91,15 +102,17 @@ class DouJobScraper:
         
         url: list[str] = self.base_url
 
-        if self.remote:
+        if self.no_exp:
+            url += self.base_url
+        if self.remote and not self.no_exp:
             url += "remote&"
-        if self.relocation:
+        if self.relocation and not self.no_exp:
             url += "relocation&"
         if self.city:
             url += f"city={self.city}&"
-        if self.category:
+        if self.category and not self.no_exp:
             url += f"category={self.category}&"
-        if self.experience:
+        if self.experience and not self.no_exp:
             url += f"exp={self.experience}"
         if url[-1] == "&":
             url = url[:-1]
