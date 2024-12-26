@@ -77,8 +77,7 @@ class GlobalLogicJobScraper:
         self.on_site = on_site
         self.full_url = self._construct_full_url()
         # Ensure the CSV directory exists
-        if not os.path.exists(os.path.dirname(self.csv_file)):
-            os.makedirs(os.path.dirname(self.csv_file))
+        os.makedirs(os.path.dirname(self.csv_file), exist_ok=True)
 
     def _construct_full_url(self) -> str:
         """
@@ -145,7 +144,7 @@ class GlobalLogicJobScraper:
 
         return job_offers_list
 
-    def check_and_add_jobs(self, job_offers_lst: List[Dict[str, Optional[str]]]) -> List[Dict[str, Optional[str]]]:
+    def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
         """
         Checks if each job offer already exists in the CSV file based on the job title.
         If a job offer is not found, it is added to the file.
@@ -156,6 +155,8 @@ class GlobalLogicJobScraper:
         Returns:
             list: A list of new job offers (dictionaries) that were added to the CSV file.
         """
+
+        job_offers_lst = self.get_list_jobs()
         existing_titles = set()
         new_jobs_lst = []
 
@@ -179,7 +180,7 @@ class GlobalLogicJobScraper:
 
         return new_jobs_lst
 
-    def send_new_jobs_to_telegram(self, new_jobs: List[Dict[str, Optional[str]]]) -> None:
+    def send_new_jobs_to_telegram(self) -> None:
         """
         Send new job offers to Telegram chat.
 
@@ -187,6 +188,8 @@ class GlobalLogicJobScraper:
             new_jobs (list): List of vacancies for sending.
         """
         base_url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
+
+        new_jobs: List[Dict[str, str | None]] = self.check_and_add_jobs()
 
         for job in new_jobs:
             message = (
@@ -206,3 +209,16 @@ class GlobalLogicJobScraper:
                 logging.info("Job sent to Telegram successfully!")
             except requests.RequestException as e:
                 logging.error("Failed to send job to Telegram: %s", e)
+
+if __name__ == "__main__":
+    TOKEN = os.getenv("TELEGRAM_TOKEN")
+    CHAT_ID = os.getenv("CHAT_ID")
+    scraper = GlobalLogicJobScraper(
+        csv_file="./csv_files/gl_logic_0_1.csv",
+        telegram_token=TOKEN,
+        chat_id=CHAT_ID,
+        keywords="python",
+        experience="0-1+years",
+        locations="ukraine",
+    )
+    scraper.send_new_jobs_to_telegram()
