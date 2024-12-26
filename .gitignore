@@ -4,4 +4,4 @@ venv
 .vscode
 __pycache__/
 *.pyc
-scrapers/__pycache__/gb_lg_jobs_scraper.cpython-311.pyc
+

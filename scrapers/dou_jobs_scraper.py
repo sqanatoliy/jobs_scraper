@@ -16,10 +16,11 @@ import os
 import re
 import logging
 import time
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, ResultSet
+from bs4.element import Tag
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -47,7 +48,7 @@ class DouJobScraper:
         city: str = None,
         remote: bool = False,
         relocation: bool = False,
-    ):
+    ) -> None:
         """
         Initializes the DouJobScraper with search parameters for job filtering.
 
@@ -60,18 +61,17 @@ class DouJobScraper:
             relocation (bool): Filter for relocation jobs: relocation.
         """
         self.base_url = "https://jobs.dou.ua/vacancies/?"
-        self.csv_file = csv_file
+        self.csv_file: str = csv_file
         self.telegram_token = telegram_token
-        self.chat_id = chat_id
-        self.category = category   # Python, JavaScript, etc.
-        self.experience = experience  # 0-1, 1-3, 3-5, 5plus
-        self.city = city   # Київ, Львів, Одеса etc.
-        self.remote = remote   # remote
-        self.relocation = relocation   # relocation
-        self.full_url = self._construct_full_url()
+        self.chat_id: str = chat_id
+        self.category: str = category   # Python, JavaScript, etc.
+        self.experience: str = experience  # 0-1, 1-3, 3-5, 5plus
+        self.city: str = city   # Київ, Львів, Одеса etc.
+        self.remote: bool = remote   # remote
+        self.relocation: bool = relocation   # relocation
+        self.full_url: str = self._construct_full_url()
         # Ensure the CSV directory exists
-        if not os.path.exists(os.path.dirname(self.csv_file)):
-            os.makedirs(os.path.dirname(self.csv_file))
+        os.makedirs(os.path.dirname(self.csv_file), exist_ok=True)
 
     def _construct_full_url(self) -> str:
         """
@@ -119,38 +119,38 @@ class DouJobScraper:
                 - "cities" (str): Job location.
                 - "sh_info" (str): Short information about the job.
         """
-        job_offers_list = []
+        job_offers_list: list = []
 
         try:
-            headers = {
+            headers: Dict[str, str] = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
             }
             response = requests.get(self.full_url, headers=headers, timeout=30)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
-            job_cards = soup.select("ul > li.l-vacancy")
+            job_cards: ResultSet[Tag] = soup.select("ul > li.l-vacancy")
 
             for job_card in job_cards:
-                date_posted = job_card.select_one("div.date").text.strip()
-                title_element = job_card.select_one("div.title")
+                date_posted: str = job_card.select_one("div.date").text.strip()
+                title_element: Tag | None = job_card.select_one("div.title")
                 if title_element:
-                    title = title_element.select_one("a").text.strip()
-                    link = title_element.select_one("a").get("href")
-                    company_element = title_element.select_one("strong")
-                    company = (
+                    title: str = title_element.select_one("a").text.strip()
+                    link: str | List[str] | None = title_element.select_one("a").get("href")
+                    company_element: Tag | None = title_element.select_one("strong")
+                    company: str | None = (
                         re.sub(r"\s+", " ", company_element.text.strip())
                         if company_element
                         else None
                     )
-                    salary_element = title_element.select_one("span.salary")
+                    salary_element: Tag | None = title_element.select_one("span.salary")
                     if salary_element:
-                        salary = salary_element.text.strip()
+                        salary: str = salary_element.text.strip()
                     else:
                         salary = None
                     cities = title_element.select_one("span.cities").text.strip()
 
-                    short_info_element = job_card.select_one("div.sh-info")
-                    short_info = (
+                    short_info_element: Tag | None = job_card.select_one("div.sh-info")
+                    short_info: str | None = (
                         re.sub(r"\s+", " ", short_info_element.text.strip())
                         if short_info_element
                         else None
@@ -165,7 +165,7 @@ class DouJobScraper:
 
         return job_offers_list
 
-    def check_and_add_jobs(self, job_offers_lst: List[Dict[str, Optional[str]]]) -> List[Dict[str, Optional[str]]]:
+    def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
         """
         Checks if each job offer already exists in the CSV file based on title, date, and company.
         If a job offer is not found, it is added to the file.
@@ -176,15 +176,16 @@ class DouJobScraper:
         Returns:
             list: A list of new job offers (dictionaries) that were added to the CSV file.
         """
+        job_offers_lst: List[Dict[str, str | None]] = self.get_list_jobs()
         existing_jobs = set()  # Stores unique identifiers (title, date, company) of existing jobs
-        new_jobs_lst = []
+        new_jobs_lst: list = []
 
         # Load existing jobs from the CSV file
         try:
             with open(self.csv_file, mode="r", newline="", encoding="utf-8") as file:
                 reader = csv.DictReader(file)
                 if reader.fieldnames and {"title", "date", "company"}.issubset(reader.fieldnames):
-                    existing_jobs = {(row["title"], row["date"], row["company"]) for row in reader}
+                    existing_jobs: set[tuple[str | Any, str | Any, str | Any]] = {(row["title"], row["date"], row["company"]) for row in reader}
         except FileNotFoundError:
             pass
 
@@ -206,7 +207,7 @@ class DouJobScraper:
 
         return new_jobs_lst
 
-    def send_new_jobs_to_telegram(self, new_jobs: List[Dict[str, Optional[str]]]) -> None:
+    def send_new_jobs_to_telegram(self) -> None:
         """
         Send new job offers to Telegram chat.
 
@@ -215,8 +216,15 @@ class DouJobScraper:
         """
         base_url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
 
+        new_jobs: List[Dict[str, str | None]] = self.check_and_add_jobs()
+
+        # If there are no new jobs, log a message and return
+        if not new_jobs:
+            logging.info("No new jobs to send to Telegram.")
+            return
+        
         for job in new_jobs:
-            message = (
+            message: str = (
                 "DOU PRESENT \n"
                 f"Date: {job['date']}\n"
                 f"[{job['title']}]({job['link']}) {job['company'] or 'N/A'} \n"
@@ -225,7 +233,7 @@ class DouJobScraper:
                 f"Cities: {job['cities']}\n"
                 f"Short Info: {job['sh_info'] or 'N/A'}"
             )
-            payload = {
+            payload: dict[str | Any] = {
                 "chat_id": self.chat_id,
                 "text": message,
                 "parse_mode": "Markdown",
@@ -233,7 +241,7 @@ class DouJobScraper:
             }
             while True:
                 try:
-                    response = requests.post(base_url, data=payload, timeout=30)
+                    response: requests.Response = requests.post(base_url, data=payload, timeout=30)
                     if response.status_code == 429:  # Too Many Requests
                         retry_after = int(response.json().get("parameters", {}).get("retry_after", 1))
                         logging.warning("Rate limit exceeded. Retrying after %d seconds...", retry_after)
@@ -247,3 +255,14 @@ class DouJobScraper:
                     logging.error("Failed to send job to Telegram: %s", e)
                     time.sleep(5)
 
+if __name__ == "__main__":
+    TOKEN: str | None = os.getenv("TELEGRAM_TOKEN")
+    CHAT_ID: str | None = os.getenv("CHAT_ID")
+    scraper_0_1 = DouJobScraper(
+        telegram_token=TOKEN,
+        chat_id=CHAT_ID,
+        csv_file="./csv_files/dou_0_1.csv",
+        category="Python",
+        experience="0-1",
+    )
+    scraper_0_1.send_new_jobs_to_telegram()
