@@ -24,7 +24,9 @@ from scrapers.dou_jobs_scraper import DouJobScraper
 load_dotenv()
 
 TOKEN: str | None = os.getenv("TELEGRAM_TOKEN")
+NO_EXP_TOKEN: str | None = os.getenv("NO_EXP_TELEGRAM_TOKEN")
 CHAT_ID: str | None = os.getenv("CHAT_ID")
+NO_EXP_CHAT_ID: str | None = os.getenv("NO_EXP_CHAT_ID")
 
 # Check new jobs for experience level 0-1 years on GlobalLogic
 GlobalLogicJobScraper(
@@ -64,4 +66,12 @@ DouJobScraper(
     csv_file="./csv_files/dou_1_3.csv",
     category="Python",
     experience="1-3",
+).send_new_jobs_to_telegram()
+
+# Check new jobs for no experience level on DOU
+DouJobScraper(
+    telegram_token=NO_EXP_TOKEN,
+    chat_id=NO_EXP_CHAT_ID,
+    csv_file="./csv_files/dou_0.csv",
+    no_exp=True,
 ).send_new_jobs_to_telegram()

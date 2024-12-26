@@ -160,7 +160,12 @@ class DouJobScraper:
                         salary: str = salary_element.text.strip()
                     else:
                         salary = None
-                    cities = title_element.select_one("span.cities").text.strip()
+                    cities_element: Tag | None = title_element.select_one("span.cities")
+                    cities: str | None = (
+                        re.sub(r"\s+", " ", cities_element.text.strip())
+                        if cities_element
+                        else None
+                    )
 
                     short_info_element: Tag | None = job_card.select_one("div.sh-info")
                     short_info: str | None = (
@@ -210,14 +215,15 @@ class DouJobScraper:
                 writer.writeheader()
 
             for job in job_offers_lst:
+                if len(new_jobs_lst) >= 80:
+                    break
                 # Create a unique identifier for the job (title, date, company)
-                job_identifier = (job["title"], job["date"], job["company"])
+                job_identifier: tuple[str | None, str | None, str | None] = (job["title"], job["date"], job["company"])
 
                 # Add the job to the CSV file if it's not already present
                 if job_identifier not in existing_jobs:
                     writer.writerow(job)  # Save all job fields
                     new_jobs_lst.append(job)
-
         return new_jobs_lst
 
     def send_new_jobs_to_telegram(self) -> None:
@@ -262,20 +268,42 @@ class DouJobScraper:
                         continue  # Retry sending the same message
                     response.raise_for_status()
                     logging.info("Job sent to Telegram successfully!")
-                    time.sleep(1)  # Delay to avoid rate limiting
+                    time.sleep(5)  # Delay to avoid rate limiting
                     break  # Move to the next message
                 except requests.RequestException as e:
                     logging.error("Failed to send job to Telegram: %s", e)
-                    time.sleep(5)
+                    time.sleep(60)
 
 if __name__ == "__main__":
-    TOKEN: str | None = os.getenv("TELEGRAM_TOKEN")
-    CHAT_ID: str | None = os.getenv("CHAT_ID")
-    scraper_0_1 = DouJobScraper(
-        telegram_token=TOKEN,
-        chat_id=CHAT_ID,
-        csv_file="./csv_files/dou_0_1.csv",
-        category="Python",
-        experience="0-1",
-    )
-    scraper_0_1.send_new_jobs_to_telegram()
+
+    # TOKEN: str | None = os.getenv("TELEGRAM_TOKEN")
+    # CHAT_ID: str | None = os.getenv("CHAT_ID")
+    # scraper_0_1 = DouJobScraper(
+    #     telegram_token=TOKEN,
+    #     chat_id=CHAT_ID,
+    #     csv_file="./csv_files/dou_0_1.csv",
+    #     category="Python",
+    #     experience="0-1",
+    # )
+    # scraper_0_1.send_new_jobs_to_telegram()
+
+
+    NO_EXP_TOKEN: str | None = os.getenv("NO_EXP_TELEGRAM_TOKEN")
+    NO_EXP_CHAT_ID: str | None = os.getenv("NO_EXP_CHAT_ID")
+    no_exp_job = DouJobScraper(
+        telegram_token=NO_EXP_TOKEN,
+        chat_id=NO_EXP_CHAT_ID,
+        csv_file="./csv_files/dou_0.csv",
+        no_exp=True,
+        )
+    # print(no_exp_job.get_list_jobs())
+    # print("=====================================")
+    k=1
+    for job0 in no_exp_job.get_list_jobs():
+        print(k, job0["date"], job0["title"], "\n")
+        k+=1
+    print("=====================================")
+    K1=1
+    for job1 in no_exp_job.check_and_add_jobs():
+        print(K1, job1["date"], job1["title"], "\n")
+        K1+=1
