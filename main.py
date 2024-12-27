@@ -7,9 +7,6 @@ Environment Variables:
 - TELEGRAM_TOKEN: The token for the Telegram bot.
 - CHAT_ID: The chat ID where the job postings will be sent.
 
-Functions:
-- send_new_jobs_to_telegram: Sends new job postings to the specified Telegram chat.
-
 Usage:
 1. Ensure that the .env file contains the TELEGRAM_TOKEN and CHAT_ID.
 2. Run the script to check for new job postings and send them to the specified Telegram chat.
