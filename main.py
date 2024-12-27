@@ -57,7 +57,7 @@ DouJobScraper(
     csv_file="./csv_files/dou_0_1.csv",
     category="Python",
     experience="0-1",
-).send_new_jobs_to_telegram()
+).check_and_add_jobs()
 
 # Check new jobs for experience level 1-3 years on DOU
 DouJobScraper(
@@ -66,7 +66,7 @@ DouJobScraper(
     csv_file="./csv_files/dou_1_3.csv",
     category="Python",
     experience="1-3",
-).send_new_jobs_to_telegram()
+).check_and_add_jobs()
 
 # Check new jobs for no experience level on DOU
 DouJobScraper(
@@ -74,4 +74,4 @@ DouJobScraper(
     chat_id=NO_EXP_CHAT_ID,
     csv_file="./csv_files/dou_0.csv",
     no_exp=True,
-).send_new_jobs_to_telegram()
+).check_and_add_jobs()
