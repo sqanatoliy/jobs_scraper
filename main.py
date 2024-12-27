@@ -14,7 +14,6 @@ Usage:
 import os
 from dotenv import load_dotenv
 
-
 from scrapers.gb_lg_jobs_scraper import GlobalLogicJobScraper
 from scrapers.dou_jobs_scraper import DouJobScraper
 

@@ -168,10 +168,11 @@ class DouJobScraper:
 
     def _send_job_to_telegram(self, job: Dict[str, Optional[str]]) -> None:
         """Sends a job offer to a Telegram chat."""
+        experience: str = self.experience.replace("+", " ") if self.experience else "No experience"
         message: str = (
             f"*Date:* {job['date']}\n"
             f"[{job['title']}]({job['link']}) *{job['company']}*\n"
-            f"*Experienced:* {self.experience}\n" if not self.no_exp else f"*No experience*\n"
+            f"*Experienced:* {experience} years\n"
             f"*Salary:* {job['salary'] or 'N/A'}\n"
             f"*Cities:* {job['cities']}\n"
             f"*Info:* {self._clean_text_for_telegram(job['sh_info'] or 'N/A')}"
