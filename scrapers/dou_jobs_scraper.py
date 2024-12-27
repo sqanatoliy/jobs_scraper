@@ -191,9 +191,17 @@ class DouJobScraper:
                     timeout=60,
                 )
                 if response.status_code == 429:
-                    retry_time = int(response.json().get("retry_after", 1))
+                    try:
+                        # Отримуємо час очікування з відповіді API, якщо доступно
+                        retry_time = int(response.json().get("retry_after", 5))  # За замовчуванням 5 секунд
+                    except ValueError:
+                        # Якщо відповідь не JSON або параметр не знайдено
+                        retry_time = 5
+
+                    logging.warning(
+                        "Telegram API rate limit exceeded. Waiting and retrying after %s seconds.", retry_time
+                    )
                     time.sleep(retry_time)
-                    logging.warning("Telegram API rate limit exceeded. Waiting and retrying after %s s.", retry_time)
                     continue
                 response.raise_for_status()
                 logging.info("Job sent to Telegram successfully.")
