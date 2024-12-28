@@ -34,7 +34,6 @@ GlobalLogicJobScraper(
     locations="ukraine",
 ).send_new_jobs_to_telegram()
 
-
 # Check new jobs for experience level 1-3 years on GlobalLogic
 GlobalLogicJobScraper(
     csv_file="./csv_files/gl_logic_1_3.csv",
