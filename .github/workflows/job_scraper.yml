@@ -2,7 +2,7 @@ name: Run Job Scraper Hourly
 
 on:
   schedule:
-    - cron: '0 * * * *' # Запуск щогодини
+    - cron: '0 * * * *' 
   workflow_dispatch: # Дозволяє вручну запускати робочий процес
 
 jobs:
@@ -43,9 +43,15 @@ jobs:
         NO_EXP_CHAT_ID: ${{ secrets.NO_EXP_CHAT_ID }}
       run: python main.py
 
+    - name: Debug CSV files
+      run: |
+        echo "Debugging CSV files before updating cache..."
+        ls -l ./csv_files
+        cat ./csv_files/*.csv || echo "No CSV files found"
+
     - name: Update cache with new CSV files
       if: always()
       uses: actions/cache@v3
       with:
         path: ./csv_files
-        key: csv-cache-${{ runner.os }}-${{ hashFiles('**/csv_files/*.csv') }}
+        key: csv-cache-${{ runner.os }}-${{ github.run_id }}
