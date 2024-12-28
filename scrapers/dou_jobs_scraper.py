@@ -224,7 +224,7 @@ class DouJobScraper:
     def _get_retry_time(self, response: requests.Response) -> int:
         """Extracts retry time from the Telegram API response."""
         try:
-            return int(response.json().get("retry_after", 5))
+            return int(response.json().get("parameters", {}).get("retry_after", 5))
         except (ValueError, KeyError):
             return 5
 
@@ -242,4 +242,3 @@ if __name__ == "__main__":
         csv_file="./csv_files/dou_0.csv",
         no_exp=True,
     ).check_and_add_jobs()
-    
