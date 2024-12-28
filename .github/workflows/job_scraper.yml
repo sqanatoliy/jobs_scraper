@@ -52,4 +52,4 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ./csv_files
-        key: csv-cache-${{ runner.os }}-${{ hashFiles('**/csv_files/*.csv') }}
+        key: csv-cache-${{ runner.os }}-${{ github.run_id }}
