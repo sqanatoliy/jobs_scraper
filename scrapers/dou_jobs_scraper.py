@@ -15,6 +15,7 @@ import csv
 import logging
 import time
 from typing import Any, List, Dict, Optional
+from dotenv import load_dotenv
 
 import requests
 from bs4 import BeautifulSoup, Tag, ResultSet
@@ -40,6 +41,7 @@ class DouJobScraper:
 
     BASE_URL = "https://jobs.dou.ua/vacancies/"
     BASE_URL_NO_EXP = "https://jobs.dou.ua/first-job/"
+    TELEGRAM_API_URL = "https://api.telegram.org/bot{}/sendMessage"
 
     def __init__(
         self,
@@ -166,10 +168,11 @@ class DouJobScraper:
         except FileNotFoundError:
             return set()
 
-    def _send_job_to_telegram(self, job: Dict[str, Optional[str]]) -> None:
-        """Sends a job offer to a Telegram chat."""
+
+    def _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:
+        """Creates a formatted message for Telegram."""
         experience: str = self.experience.replace("+", " ") if self.experience else "No experience"
-        message: str = (
+        return (
             f"*Date:* {job['date']}\n"
             f"[{job['title']}]({job['link']}) *{job['company']}*\n"
             f"*Experienced:* {experience} years\n"
@@ -177,7 +180,11 @@ class DouJobScraper:
             f"*Cities:* {job['cities']}\n"
             f"*Info:* {self._clean_text_for_telegram(job['sh_info'] or 'N/A')}"
         )
-        payload: dict[str, Any] = {
+
+    def _send_job_to_telegram(self, job: Dict[str, Optional[str]]) -> None:
+        """Sends a job offer to a Telegram chat."""
+        message: str = self._create_telegram_message(job)
+        payload: Dict[str, Any] = {
             "chat_id": self.chat_id,
             "text": message,
             "parse_mode": "Markdown",
@@ -187,18 +194,12 @@ class DouJobScraper:
         while True:
             try:
                 response: requests.Response = requests.post(
-                    f"https://api.telegram.org/bot{self.telegram_token}/sendMessage",
+                    self.TELEGRAM_API_URL.format(self.telegram_token),
                     data=payload,
                     timeout=60,
                 )
                 if response.status_code == 429:
-                    try:
-                        # Отримуємо час очікування з відповіді API, якщо доступно
-                        retry_time = int(response.json().get("retry_after", 5))  # За замовчуванням 5 секунд
-                    except ValueError:
-                        # Якщо відповідь не JSON або параметр не знайдено
-                        retry_time = 5
-
+                    retry_time = self._get_retry_time(response)
                     logging.warning(
                         "Telegram API rate limit exceeded. Waiting and retrying after %s seconds.", retry_time
                     )
@@ -207,6 +208,38 @@ class DouJobScraper:
                 response.raise_for_status()
                 logging.info("Job sent to Telegram successfully.")
                 break
-            except requests.RequestException as e:
+            except requests.exceptions.HTTPError as e:
+                logging.error("HTTP error occurred: %s", e)
+                time.sleep(10)
+            except requests.exceptions.ConnectionError as e:
+                logging.error("Connection error occurred: %s", e)
+                time.sleep(10)
+            except requests.exceptions.Timeout as e:
+                logging.error("Timeout error occurred: %s", e)
+                time.sleep(10)
+            except requests.exceptions.RequestException as e:
                 logging.error("Failed to send job to Telegram: %s", e)
                 time.sleep(10)
+
+    def _get_retry_time(self, response: requests.Response) -> int:
+        """Extracts retry time from the Telegram API response."""
+        try:
+            return int(response.json().get("retry_after", 5))
+        except (ValueError, KeyError):
+            return 5
+
+if __name__ == "__main__":
+    load_dotenv()
+
+    TOKEN: str | None = os.getenv("TELEGRAM_TOKEN")
+    NO_EXP_TOKEN: str | None = os.getenv("NO_EXP_TELEGRAM_TOKEN")
+    CHAT_ID: str | None = os.getenv("CHAT_ID")
+    NO_EXP_CHAT_ID: str | None = os.getenv("NO_EXP_CHAT_ID")
+    # Check new jobs for no experience level on DOU
+    DouJobScraper(
+        telegram_token=NO_EXP_TOKEN,
+        chat_id=NO_EXP_CHAT_ID,
+        csv_file="./csv_files/dou_0.csv",
+        no_exp=True,
+    ).check_and_add_jobs()
+    
