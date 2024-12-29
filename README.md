@@ -15,8 +15,10 @@ This project is designed to scrape job postings from popular job boards and send
 - Clone the repository.
 - Create a .env file in the root directory and add your Telegram bot token and chat ID.
 - Run the main.py script to start the scraper.
+  
 **GitHub Actions**
-The project includes a GitHub Actions workflow that automatically runs the scraper every hour. The workflow also caches the CSV files to speed up the scraping process.
+- The project includes a GitHub Actions workflow that automatically runs the scraper every hour.
+- The workflow also caches the CSV files to speed up the scraping process.
 
 **Contributing**
 
