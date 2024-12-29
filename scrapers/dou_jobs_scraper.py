@@ -1,15 +1,43 @@
 """
-This module contains the `DouJobScraper` class, which allows for scraping job offers
-from dou.ua Jobs page based on various parameters and saving them in a CSV file.
+A module for scraping job offers from the Dou Jobs page and sending notifications via Telegram.
 
-Dependencies:
-    - requests
-    - BeautifulSoup (from bs4)
-    - csv
-    - re
-    - logging
+Classes:
+    DouJobScraper: A scraper for retrieving job offers from Dou Jobs page based on specified criteria.
+
+Functions:
+    __init__(self, telegram_token: str, chat_id: str, csv_file: str, category: Optional[str] = None, experience: Optional[str] = None, city: Optional[str] = None, remote: bool = False, relocation: bool = False, no_exp: bool = False) -> None:
+        Initializes the DouJobScraper with the specified parameters.
+
+    _construct_full_url(self) -> str:
+        Constructs the full URL for job scraping based on filters.
+
+    _clean_text_for_telegram(self, text: str) -> str:
+        Cleans text for Telegram compatibility.
+
+    get_list_jobs(self) -> List[Dict[str, Optional[str]]]:
+        Scrapes job offers and returns a list of dictionaries.
+
+    _extract_job_data(self, job_card: Tag) -> Optional[Dict[str, Optional[str]]]:
+        Extracts job data from a single job card.
+
+    check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
+        Checks for new jobs and adds them to the CSV if not present.
+
+    _load_existing_jobs(self) -> set:
+        Loads existing jobs from the CSV file.
+
+    _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:
+        Creates a formatted message for Telegram.
+
+    _send_job_to_telegram(self, job: Dict[str, Optional[str]]) -> None:
+        Sends a job offer to a Telegram chat.
+
+    _get_retry_time(self, response: requests.Response) -> int:
+        Extracts retry time from the Telegram API response.
+
+Usage:
+    Load environment variables and initialize the DouJobScraper to check and add new jobs.
 """
-
 import os
 import csv
 import logging
