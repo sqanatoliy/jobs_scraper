@@ -18,22 +18,21 @@ jobs:
       with:
         python-version: '3.11'
 
+    - name: Compute cache key
+      id: cache-key
+      run: echo "key=csv-cache-${{ runner.os }}-$(find ./csv_files -type f -exec sha256sum {} + | sha256sum | cut -d' ' -f1)" >> $GITHUB_ENV
+
     - name: Restore cached CSV files
       uses: actions/cache@v3
-      id: csv-cache
       with:
         path: ./csv_files
-        key: csv-cache-latest-${{ runner.os }}
+        key: ${{ steps.cache-key.outputs.key }}
+        restore-keys: csv-cache-${{ runner.os }}-
 
-    - name: Debug CSV files (Before Clearing Cache)
+    - name: Debug CSV files (Before Script)
       run: |
-        echo "CSV files before clearing cache:"
+        echo "CSV files before script execution:"
         ls -l ./csv_files || echo "No CSV files found"
-
-    - name: Clear Cache (Invalidate Old Cache)
-      run: |
-        echo "Invalidating cache by updating timestamp..."
-        touch ./csv_files/.cache_invalidated
 
     - name: Ensure CSV directory exists
       run: mkdir -p ./csv_files
@@ -60,4 +59,4 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ./csv_files
-        key: csv-cache-latest-${{ runner.os }}
+        key: ${{ steps.cache-key.outputs.key }}
