@@ -3,7 +3,7 @@ name: Run Job Scraper Hourly
 on:
   schedule:
     - cron: '0 * * * *'
-  workflow_dispatch: # Дозволяє вручну запускати робочий процес
+  workflow_dispatch: 
 
 jobs:
   run_scraper:
@@ -24,20 +24,14 @@ jobs:
     - name: Generate cache key
       id: generate-cache-key
       run: |
-        if [ -d "./csv_files" ] && [ "$(ls -A ./csv_files)" ]; then
-          CACHE_KEY=$(find ./csv_files -type f -exec sha256sum {} + | sha256sum | cut -d' ' -f1)
-        else
-          CACHE_KEY="empty-cache"
-        fi
-        echo "Generated cache key: $CACHE_KEY"
-        echo "CACHE_KEY=$CACHE_KEY" >> $GITHUB_ENV  # Записуємо ключ у середовище
+        echo "CACHE_KEY=csv-cache-Linux-${{ hashFiles('./csv_files/*') }}" >> $GITHUB_ENV
 
     - name: Restore cached CSV files
       uses: actions/cache@v3
       id: csv-cache
       with:
         path: ./csv_files
-        key: ${{ env.CACHE_KEY }}  # Використовуємо кешований ключ
+        key: ${{ env.CACHE_KEY }}
         restore-keys: csv-cache-Linux-
         enableCrossOsArchive: false
         fail-on-cache-miss: false
@@ -73,4 +67,4 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ./csv_files
-        key: ${{ env.CACHE_KEY }}  # Використовуємо той самий ключ для кешування
+        key: ${{ env.CACHE_KEY }}
