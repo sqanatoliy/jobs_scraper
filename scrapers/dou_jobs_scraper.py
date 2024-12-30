@@ -119,7 +119,7 @@ class DouJobScraper:
 
     def _clean_text_for_telegram(self, text: str) -> str:
         """Cleans text for Telegram compatibility."""
-        return text.replace("`", "'").replace("’", "'").replace("'", "&#39;").strip()
+        return text.replace("`", "'").replace("’", "'").strip()
 
     def get_list_jobs(self) -> List[Dict[str, Optional[str]]]:
         """Scrapes job offers and returns a list of dictionaries."""
