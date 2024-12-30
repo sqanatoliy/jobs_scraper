@@ -32,7 +32,6 @@ jobs:
       with:
         path: ./csv_files
         key: ${{ env.CACHE_KEY }}
-        restore-keys: csv-cache-Linux-
         enableCrossOsArchive: false
         fail-on-cache-miss: false
 
