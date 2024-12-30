@@ -29,16 +29,18 @@ jobs:
         else
           CACHE_KEY="empty-cache"
         fi
-        echo "key=csv-cache-Linux-$CACHE_KEY" >> $GITHUB_ENV
-        echo "Cache key generated: csv-cache-Linux-$CACHE_KEY"
+        echo "Generated cache key: $CACHE_KEY"
+        echo "CACHE_KEY=$CACHE_KEY" >> $GITHUB_ENV  # Записуємо ключ у середовище
 
     - name: Restore cached CSV files
       uses: actions/cache@v3
       id: csv-cache
       with:
         path: ./csv_files
-        key: ${{ steps.generate-cache-key.outputs.key }}
+        key: ${{ env.CACHE_KEY }}  # Використовуємо кешований ключ
         restore-keys: csv-cache-Linux-
+        enableCrossOsArchive: false
+        fail-on-cache-miss: false
 
     - name: Check if cache was restored
       run: |
@@ -71,4 +73,4 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ./csv_files
-        key: ${{ steps.generate-cache-key.outputs.key }}
+        key: ${{ env.CACHE_KEY }}  # Використовуємо той самий ключ для кешування
