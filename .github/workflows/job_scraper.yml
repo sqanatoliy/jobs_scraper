@@ -18,24 +18,36 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Compute cache key
-      id: cache-key
-      run: echo "key=csv-cache-${{ runner.os }}-$(find ./csv_files -type f -exec sha256sum {} + | sha256sum | cut -d' ' -f1)" >> $GITHUB_ENV
+    - name: Ensure CSV directory exists
+      run: mkdir -p ./csv_files
+
+    - name: Generate cache key
+      id: generate-cache-key
+      run: |
+        if [ -d "./csv_files" ] && [ "$(ls -A ./csv_files)" ]; then
+          CACHE_KEY=$(find ./csv_files -type f -exec sha256sum {} + | sha256sum | cut -d' ' -f1)
+        else
+          CACHE_KEY="empty-cache"
+        fi
+        echo "key=csv-cache-Linux-$CACHE_KEY" >> $GITHUB_ENV
+        echo "Cache key generated: csv-cache-Linux-$CACHE_KEY"
 
     - name: Restore cached CSV files
       uses: actions/cache@v3
+      id: csv-cache
       with:
         path: ./csv_files
-        key: ${{ steps.cache-key.outputs.key }}
-        restore-keys: csv-cache-${{ runner.os }}-
+        key: ${{ steps.generate-cache-key.outputs.key }}
+        restore-keys: csv-cache-Linux-
 
-    - name: Debug CSV files (Before Script)
+    - name: Check if cache was restored
       run: |
-        echo "CSV files before script execution:"
-        ls -l ./csv_files || echo "No CSV files found"
-
-    - name: Ensure CSV directory exists
-      run: mkdir -p ./csv_files
+        if [ -d "./csv_files" ] && [ "$(ls -A ./csv_files)" ]; then
+          echo "Cache restored successfully:"
+          ls -l ./csv_files
+        else
+          echo "No cache restored. Directory is empty or does not exist."
+        fi
 
     - name: Install dependencies
       run: |
@@ -59,4 +71,4 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ./csv_files
-        key: ${{ steps.cache-key.outputs.key }}
+        key: ${{ steps.generate-cache-key.outputs.key }}
