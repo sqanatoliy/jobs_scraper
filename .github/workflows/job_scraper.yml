@@ -23,7 +23,7 @@ jobs:
       id: csv-cache
       with:
         path: ./csv_files
-        key: csv-cache-${{ runner.os }}-${{ hashFiles('**/csv_files/*.csv') }}
+        key: csv-cache-latest-${{ runner.os }}
 
     - name: Ensure CSV directory exists
       run: mkdir -p ./csv_files
