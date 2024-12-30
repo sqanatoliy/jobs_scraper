@@ -2,7 +2,7 @@ name: Run Job Scraper Hourly
 
 on:
   schedule:
-    - cron: '0 * * * *' 
+    - cron: '0 * * * *'
   workflow_dispatch: # Дозволяє вручну запускати робочий процес
 
 jobs:
@@ -25,6 +25,16 @@ jobs:
         path: ./csv_files
         key: csv-cache-latest-${{ runner.os }}
 
+    - name: Debug CSV files (Before Clearing Cache)
+      run: |
+        echo "CSV files before clearing cache:"
+        ls -l ./csv_files || echo "No CSV files found"
+
+    - name: Clear Cache (Invalidate Old Cache)
+      run: |
+        echo "Invalidating cache by updating timestamp..."
+        touch ./csv_files/.cache_invalidated
+
     - name: Ensure CSV directory exists
       run: mkdir -p ./csv_files
 
@@ -41,14 +51,12 @@ jobs:
         NO_EXP_CHAT_ID: ${{ secrets.NO_EXP_CHAT_ID }}
       run: python main.py
 
-    - name: Debug CSV files
+    - name: Debug CSV files (After Script)
       run: |
-        echo "Debugging CSV files before updating cache..."
-        ls -l ./csv_files
-        cat ./csv_files/*.csv || echo "No CSV files found"
+        echo "CSV files after script execution:"
+        ls -l ./csv_files || echo "No CSV files generated"
 
     - name: Update cache with new CSV files
-      if: always()
       uses: actions/cache@v3
       with:
         path: ./csv_files
