@@ -21,11 +21,13 @@ jobs:
     - name: Ensure CSV directory exists
       run: mkdir -p ./csv_files
 
+    # Генерація початкового ключа
     - name: Generate initial cache key
       id: generate-cache-key
       run: |
-        echo "CACHE_KEY=csv-cache-Linux-${{ hashFiles('./csv_files/*') }}" >> $GITHUB_ENV
+        echo "CACHE_KEY=csv-cache-Linux-${{ hashFiles('./csv_files/*') }}-${{ github.run_id }}" >> $GITHUB_ENV
 
+    # Відновлення кешу
     - name: Restore cached CSV files
       uses: actions/cache@v3
       id: csv-cache
@@ -33,7 +35,7 @@ jobs:
         path: ./csv_files
         key: ${{ env.CACHE_KEY }}
         enableCrossOsArchive: false
-        fail-on-cache-miss: false
+        fail-on-cache-miss: true
 
     - name: Check if cache was restored
       run: |
@@ -62,13 +64,17 @@ jobs:
         echo "CSV files after script execution:"
         ls -l ./csv_files || echo "No CSV files generated"
 
+    # Генерація оновленого ключа
     - name: Generate updated cache key
       id: generate-updated-cache-key
       run: |
-        echo "UPDATED_CACHE_KEY=csv-cache-Linux-${{ hashFiles('./csv_files/*') }}" >> $GITHUB_ENV
+        echo "UPDATED_CACHE_KEY=csv-cache-Linux-${{ hashFiles('./csv_files/*') }}-${{ github.run_id }}" >> $GITHUB_ENV
 
+    # Оновлення кешу
     - name: Update cache with new CSV files
       uses: actions/cache@v3
       with:
         path: ./csv_files
         key: ${{ env.UPDATED_CACHE_KEY }}
+        enableCrossOsArchive: false
+        fail-on-cache-miss: true
