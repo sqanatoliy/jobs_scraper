@@ -21,7 +21,7 @@ jobs:
     - name: Ensure CSV directory exists
       run: mkdir -p ./csv_files
 
-    - name: Generate cache key
+    - name: Generate initial cache key
       id: generate-cache-key
       run: |
         echo "CACHE_KEY=csv-cache-Linux-${{ hashFiles('./csv_files/*') }}" >> $GITHUB_ENV
@@ -62,8 +62,13 @@ jobs:
         echo "CSV files after script execution:"
         ls -l ./csv_files || echo "No CSV files generated"
 
+    - name: Generate updated cache key
+      id: generate-updated-cache-key
+      run: |
+        echo "UPDATED_CACHE_KEY=csv-cache-Linux-${{ hashFiles('./csv_files/*') }}" >> $GITHUB_ENV
+
     - name: Update cache with new CSV files
       uses: actions/cache@v3
       with:
         path: ./csv_files
-        key: ${{ env.CACHE_KEY }}
+        key: ${{ env.UPDATED_CACHE_KEY }}
