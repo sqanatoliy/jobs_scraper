@@ -18,34 +18,6 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Ensure CSV directory exists
-      run: mkdir -p ./csv_files
-
-    # Генерація початкового ключа
-    - name: Generate initial cache key
-      id: generate-cache-key
-      run: |
-        echo "CACHE_KEY=csv-cache-Linux-${{ hashFiles('./csv_files/*') }}-${{ github.run_id }}" >> $GITHUB_ENV
-
-    # Відновлення кешу
-    - name: Restore cached CSV files
-      uses: actions/cache@v3
-      id: csv-cache
-      with:
-        path: ./csv_files
-        key: ${{ env.CACHE_KEY }}
-        enableCrossOsArchive: false
-        fail-on-cache-miss: true
-
-    - name: Check if cache was restored
-      run: |
-        if [ -d "./csv_files" ] && [ "$(ls -A ./csv_files)" ]; then
-          echo "Cache restored successfully:"
-          ls -l ./csv_files
-        else
-          echo "No cache restored. Directory is empty or does not exist."
-        fi
-
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -53,28 +25,17 @@ jobs:
 
     - name: Run job scraper
       env:
+        DB_PATH: ${{ secrets.DB_PATH }}
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         NO_EXP_TELEGRAM_TOKEN: ${{ secrets.NO_EXP_TELEGRAM_TOKEN }}
         CHAT_ID: ${{ secrets.CHAT_ID }}
         NO_EXP_CHAT_ID: ${{ secrets.NO_EXP_CHAT_ID }}
       run: python main.py
 
-    - name: Debug CSV files (After Script)
+    - name: Commit and push database changes
       run: |
-        echo "CSV files after script execution:"
-        ls -l ./csv_files || echo "No CSV files generated"
-
-    # Генерація оновленого ключа
-    - name: Generate updated cache key
-      id: generate-updated-cache-key
-      run: |
-        echo "UPDATED_CACHE_KEY=csv-cache-Linux-${{ hashFiles('./csv_files/*') }}-${{ github.run_id }}" >> $GITHUB_ENV
-
-    # Оновлення кешу
-    - name: Update cache with new CSV files
-      uses: actions/cache@v3
-      with:
-        path: ./csv_files
-        key: ${{ env.UPDATED_CACHE_KEY }}
-        enableCrossOsArchive: false
-        fail-on-cache-miss: true
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add job_data.db
+        git commit -m "Update database with new job listings" || echo "No changes to commit"
+        git push

@@ -1,47 +1,38 @@
 """
-A module for scraping job offers from the Dou Jobs page and sending notifications via Telegram.
+dou_jobs_scraper.py
+
+This module defines the DouJobScraper class, which is used to scrape job 
+listings from the Dou.ua website and send notifications to a Telegram chat. 
+The script can be run as a standalone program to check for new job listings 
+and send them to a specified Telegram chat.
 
 Classes:
-    DouJobScraper: A scraper for retrieving job offers from Dou Jobs page based on specified criteria.
+    DouJobScraper: A class to scrape job listings from the Dou.ua 
+    website and send notifications to a Telegram chat.
 
 Functions:
-    __init__(self, telegram_token: str, chat_id: str, csv_file: str, category: Optional[str] = None, experience: Optional[str] = None, city: Optional[str] = None, remote: bool = False, relocation: bool = False, no_exp: bool = False) -> None:
-        Initializes the DouJobScraper with the specified parameters.
-
-    _construct_full_url(self) -> str:
-        Constructs the full URL for job scraping based on filters.
-
-    _clean_text_for_telegram(self, text: str) -> str:
-        Cleans text for Telegram compatibility.
-
-    get_list_jobs(self) -> List[Dict[str, Optional[str]]]:
-        Scrapes job offers and returns a list of dictionaries.
-
-    _extract_job_data(self, job_card: Tag) -> Optional[Dict[str, Optional[str]]]:
-        Extracts job data from a single job card.
-
-    check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
-        Checks for new jobs and adds them to the CSV if not present.
-
-    _load_existing_jobs(self) -> set:
-        Loads existing jobs from the CSV file.
-
-    _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:
-        Creates a formatted message for Telegram.
-
-    _send_job_to_telegram(self, job: Dict[str, Optional[str]]) -> None:
-        Sends a job offer to a Telegram chat.
-
-    _get_retry_time(self, response: requests.Response) -> int:
-        Extracts retry time from the Telegram API response.
+    main(): The main function that initializes the DouJobScraper and checks for new job listings.
 
 Usage:
-    Load environment variables and initialize the DouJobScraper to check and add new jobs.
+    Set the following environment variables before running the script:
+        TELEGRAM_TOKEN: The Telegram bot token.
+        NO_EXP_TELEGRAM_TOKEN: The Telegram bot token for no experience jobs.
+        CHAT_ID: The Telegram chat ID.
+        NO_EXP_CHAT_ID: The Telegram chat ID for no experience jobs.
+        DB_PATH: The path to the SQLite database file.
+
+    Example:
+        $ export TELEGRAM_TOKEN="your_telegram_token"
+        $ export NO_EXP_TELEGRAM_TOKEN="your_no_exp_telegram_token"
+        $ export CHAT_ID="your_chat_id"
+        $ export NO_EXP_CHAT_ID="your_no_exp_chat_id"
+        $ export DB_PATH="path_to_your_db.sqlite"
+        $ python dou_jobs_scraper.py
 """
-import os
-import csv
-import logging
+import sqlite3
 import time
+import os
+import logging
 from typing import Any, List, Dict, Optional
 from dotenv import load_dotenv
 
@@ -53,18 +44,35 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 class DouJobScraper:
     """
-    A scraper for retrieving job offers from Dou Jobs page based on specified criteria.
-
+    A class to scrape job listings from the Dou.ua website and 
+    send notifications to a Telegram chat.
     Attributes:
-        telegram_token (str): Telegram bot token for notifications.
-        chat_id (str): Telegram chat ID.
-        csv_file (str): Path to the CSV file where job offers will be saved.
-        category (str): Job category filter.
-        experience (str): Experience level filter.
-        city (str): Location filter.
-        remote (bool): Filter for remote jobs.
-        relocation (bool): Filter for relocation jobs.
-        no_exp (bool): If True, scrapes jobs from the "Без досвіду" page.
+        BASE_URL (str): The base URL for job listings.
+        BASE_URL_NO_EXP (str): The base URL for job listings with no experience required.
+        TELEGRAM_API_URL (str): The URL for the Telegram API to send messages.
+    Methods:
+        __init__(telegram_token, chat_id, db_path, category=None, experience=None, city=None, remote=False, relocation=False, no_exp=False):
+            Initializes the DouJobScraper with the given parameters.
+        _initialize_database():
+            Creates a database table if it doesn't exist.
+        _construct_full_url():
+            Constructs the full URL for job scraping based on filters.
+        _clean_text_for_telegram(text):
+            Cleans text for Telegram compatibility.
+        get_list_jobs():
+            Scrapes job offers and returns a list of dictionaries.
+        _extract_job_data(job_card):
+            Extracts job data from a single job card.
+        check_and_add_jobs():
+            Checks for new jobs and adds them to the database.
+        _create_telegram_message(job):
+            Creates a formatted message for Telegram.
+        _send_job_to_telegram(job):
+            Sends a job offer to a Telegram chat.
+        _get_retry_time(response):
+            Extracts retry time from the Telegram API response.
+        list_jobs_in_db():
+            Returns a list of all jobs in the database.
     """
 
     BASE_URL = "https://jobs.dou.ua/vacancies/"
@@ -75,7 +83,7 @@ class DouJobScraper:
         self,
         telegram_token: str,
         chat_id: str,
-        csv_file: str,
+        db_path: str,
         category: Optional[str] = None,
         experience: Optional[str] = None,
         city: Optional[str] = None,
@@ -85,7 +93,7 @@ class DouJobScraper:
     ) -> None:
         self.telegram_token: str = telegram_token
         self.chat_id: str = chat_id
-        self.csv_file: str = csv_file
+        self.db_path: str = db_path
         self.category: str | None = category
         self.experience: str | None = experience
         self.city: str | None = city
@@ -95,8 +103,26 @@ class DouJobScraper:
 
         self.base_url = self.BASE_URL_NO_EXP if no_exp else self.BASE_URL
         self.full_url: str = self._construct_full_url()
+        self._initialize_database()
 
-        os.makedirs(os.path.dirname(self.csv_file), exist_ok=True)
+    def _initialize_database(self) -> None:
+        """Creates a database table if it doesn't exist."""
+        with sqlite3.connect(self.db_path, check_same_thread=False) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS dou_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT,
+                    title TEXT,
+                    link TEXT,
+                    company TEXT,
+                    salary TEXT,
+                    cities TEXT,
+                    sh_info TEXT,
+                    UNIQUE(title, date, company)
+                )
+            """)
+            conn.commit()
 
     def _construct_full_url(self) -> str:
         """Constructs the full URL for job scraping based on filters."""
@@ -163,39 +189,34 @@ class DouJobScraper:
                 "cities": cities_tag.text.strip() if cities_tag else None,
                 "sh_info": short_info_tag.text.strip() if short_info_tag else None,
             }
-        except AttributeError:
+        except AttributeError as err:
+            logging.error("Error extracting job data: %s", err)
             return None
 
     def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
-        """Checks for new jobs and adds them to the CSV if not present."""
+        """Checks for new jobs and adds them to the database."""
         new_jobs: list = []
-        existing_jobs: set = self._load_existing_jobs()
+        job_offers = self.get_list_jobs()
 
-        with open(self.csv_file, mode="a", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(file, fieldnames=["date", "title", "link", "company", "salary", "cities", "sh_info"])
-            if file.tell() == 0:
-                writer.writeheader()
 
-            for job in self.get_list_jobs():
-                job_id: tuple[str | None, str | None, str | None] = (job["title"], job["date"], job["company"])
-                if job_id not in existing_jobs:
-                    self._send_job_to_telegram(job)
-                    writer.writerow(job)
+        with sqlite3.connect(self.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+
+            for job in job_offers:
+                try:
+                    cursor.execute("""
+                        INSERT INTO dou_jobs (date, title, link, company, salary, cities, sh_info)
+                        VALUES (:date, :title, :link, :company, :salary, :cities, :sh_info)
+                    """, job)
                     new_jobs.append(job)
+                    self._send_job_to_telegram(job)
+                except sqlite3.IntegrityError:
+                    # Skip if job already exists (based on unique title, date, company)
+                    continue
+
+            conn.commit()
 
         return new_jobs
-
-    def _load_existing_jobs(self) -> set:
-        """Loads existing jobs from the CSV file."""
-        try:
-            with open(self.csv_file, mode="r", encoding="utf-8") as file:
-                return {
-                    (row["title"], row["date"], row["company"])
-                    for row in csv.DictReader(file)
-                }
-        except FileNotFoundError:
-            return set()
-
 
     def _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:
         """Creates a formatted message for Telegram."""
@@ -256,6 +277,13 @@ class DouJobScraper:
         except (ValueError, KeyError):
             return 5
 
+    def list_jobs_in_db(self) -> List[Dict[str, str]]:
+        """Returns a list of all jobs in the database."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute("SELECT * FROM dou_jobs")
+            return cursor.fetchall()
+
 if __name__ == "__main__":
     load_dotenv()
 
@@ -263,10 +291,18 @@ if __name__ == "__main__":
     NO_EXP_TOKEN: str | None = os.getenv("NO_EXP_TELEGRAM_TOKEN")
     CHAT_ID: str | None = os.getenv("CHAT_ID")
     NO_EXP_CHAT_ID: str | None = os.getenv("NO_EXP_CHAT_ID")
+    DB_PATH: str | None = os.getenv("DB_PATH")
     # Check new jobs for no experience level on DOU
-    DouJobScraper(
-        telegram_token=NO_EXP_TOKEN,
-        chat_id=NO_EXP_CHAT_ID,
-        csv_file="./csv_files/dou_0.csv",
-        no_exp=True,
-    ).check_and_add_jobs()
+    dou_scraper = DouJobScraper(
+        telegram_token=TOKEN,
+        chat_id=CHAT_ID,
+        db_path=DB_PATH,
+        category="Python",
+        experience="0-1",
+    )
+    dou_scraper.check_and_add_jobs()
+    for job_dou in dou_scraper.list_jobs_in_db():
+        print(job_dou[0], job_dou[1], job_dou[2], job_dou[4])
+        print(job_dou[5], job_dou[6])
+        print(job_dou[7])
+        print()

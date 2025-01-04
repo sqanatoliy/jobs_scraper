@@ -1,48 +1,59 @@
-"""
-This module contains the `GlobalLogicJobScraper` class, which allows for scraping job offers
-from GlobalLogic's career page based on various parameters and saving them in a CSV file.
-The module includes functions to retrieve job offers and to check for and add new job listings.
 
-Dependencies:
-    - requests
-    - BeautifulSoup (from bs4)
-    - csv
-    - re
-    - logging
-"""
-
-import csv
+import sqlite3
+import time
 import os
 import re
 import logging
 from typing import Any, List, Dict, Optional
+from dotenv import load_dotenv
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag, ResultSet
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class GlobalLogicJobScraper:
     """
-    A scraper for retrieving job offers from GlobalLogic's career page based on specified criteria.
-
+    A class to scrape job listings from the Globallogic website and 
+    send notifications to a Telegram chat.
     Attributes:
-        csv_file (str): Path to the CSV file where job offers will be saved.
-        keywords (str): Keywords to filter job offers.
-        experience (str): Experience level to filter job offers.
-        locations (str): Location to filter job offers.
-        freelance (bool): Filter for freelance job offers.
-        remote (bool): Filter for remote job offers.
-        hybrid (bool): Filter for hybrid job offers.
-        on_site (bool): Filter for on-site job offers.
+        BASE_URL (str): The base URL for job listings.
+        TELEGRAM_API_URL (str): The URL for the Telegram API to send messages.
+    Methods:
+        __init__(
+            telegram_token, chat_id, db_path,
+            category=None, experience=None, city=None, 
+            remote=False, relocation=False, no_exp=False
+        ):
+            Initializes the DouJobScraper with the given parameters.
+        _initialize_database():
+            Creates a database table if it doesn't exist.
+        _construct_full_url():
+            Constructs the full URL for job scraping based on filters.
+        _clean_text_for_telegram(text):
+            Cleans text for Telegram compatibility.
+        get_list_jobs():
+            Scrapes job offers and returns a list of dictionaries.
+        check_and_add_jobs():
+            Checks for new jobs and adds them to the database.
+        _create_telegram_message(job):
+            Creates a formatted message for Telegram.
+        _send_job_to_telegram(job):
+            Sends a job offer to a Telegram chat.
+        _get_retry_time(response):
+            Extracts retry time from the Telegram API response.
+        list_jobs_in_db():
+            Returns a list of all jobs in the database.
     """
+    BASE_URL = "https://www.globallogic.com/career-search-page/?"
+    TELEGRAM_API_URL = "https://api.telegram.org/bot{}/sendMessage"
 
     def __init__(
         self,
-        csv_file: str,
         telegram_token: str,
         chat_id: str,
+        db_path: str,
         keywords: str = "",
         experience: str = "",
         locations: str = "",
@@ -51,23 +62,10 @@ class GlobalLogicJobScraper:
         hybrid: Optional[bool] = None,
         on_site: Optional[bool] = None,
     ) -> None:
-        """
-        Initializes the GlobalLogicJobScraper with search parameters for job filtering.
 
-        Args:
-            csv_file (str): Path to the CSV file to save job offers.
-            keywords (str): Keywords for job search.
-            experience (str): Experience level filter.
-            locations (str): Location filter.
-            freelance (bool): Filter for freelance jobs.
-            remote (bool): Filter for remote jobs.
-            hybrid (bool): Filter for hybrid jobs.
-            on_site (bool): Filter for on-site jobs.
-        """
-        self.base_url = "https://www.globallogic.com/career-search-page/?"
-        self.csv_file: str = csv_file
         self.telegram_token: str = telegram_token
         self.chat_id: str = chat_id
+        self.db_path: str = db_path
         self.keywords: str = keywords
         self.experience: str = experience
         self.locations: str = locations
@@ -75,9 +73,24 @@ class GlobalLogicJobScraper:
         self.remote: bool | None = remote
         self.hybrid: bool | None = hybrid
         self.on_site: bool | None = on_site
+        self.base_url = self.BASE_URL
         self.full_url: str = self._construct_full_url()
-        # Ensure the CSV directory exists
-        os.makedirs(os.path.dirname(self.csv_file), exist_ok=True)
+        self._initialize_database()
+
+    def _initialize_database(self) -> None:
+        """Creates a database table if it doesn't exist."""
+        with sqlite3.connect(self.db_path, check_same_thread=False) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS gl_lg_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    link TEXT,
+                    requirements TEXT,
+                    UNIQUE(title, link)
+                )
+            """)
+            conn.commit()
 
     def _construct_full_url(self) -> str:
         """
@@ -104,6 +117,10 @@ class GlobalLogicJobScraper:
 
         return url
 
+    def _clean_text_for_telegram(self, text: str) -> str:
+        """Cleans text for Telegram compatibility."""
+        return text.replace("`", "'").replace("’", "'").strip()
+
     def get_list_jobs(self) -> List[Dict[str, Optional[str]]]:
         """
         Retrieves job offers by scraping the GlobalLogic career page based on initialized filters.
@@ -114,116 +131,152 @@ class GlobalLogicJobScraper:
                 - "link" (str): URL to the job listing.
                 - "requirements" (str or None): Job requirements or None if unavailable.
         """
-        job_offers_list:list = []
+        job_offers:list = []
 
         try:
-            response: requests.Response = requests.get(self.full_url, timeout=30)
+            response: requests.Response = requests.get(
+                self.full_url,
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=30
+                )
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
-            job_cards = soup.select("div.career-pagelink")
+            job_cards: ResultSet[Tag] = soup.select("div.career-pagelink")
 
             for job_card in job_cards:
-                title_element = job_card.select_one("p > a")
+                title_element: Tag | None = job_card.select_one("p > a")
                 if title_element:
-                    title = title_element.text.strip()
+                    title: str = title_element.text.strip()
                     link: str | List[str] | None = title_element.get("href")
 
-                    requirements_element = job_card.select_one("p.id-num")
+                    requirements_element: Tag | None = job_card.select_one("p.id-num")
                     requirements: str | None = (
                         re.sub(r"\s+", " ", requirements_element.text.strip())
                         if requirements_element
                         else None
                     )
 
-                    job_offers_list.append(
+                    job_offers.append(
                         {"title": title, "link": link, "requirements": requirements}
                     )
 
         except requests.RequestException as e:
             logging.error("Error retrieving data from the site: %s", e)
 
-        return job_offers_list
+        return job_offers[::-1]
 
     def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
         """
-        Checks if each job offer already exists in the CSV file based on the job title.
-        If a job offer is not found, it is added to the file.
-
-        Args:
-            job_offers_lst (list): A list of dictionaries containing job offers to check and add.
-
+        Retrieves job offers, inserts new jobs into the database, and sends them to Telegram.
+        This method performs the following steps:
+        1. Retrieves a list of job offers.
+        2. Connects to the SQLite database specified by `self.db_path`.
+        3. Iterates over the job offers and attempts to insert each job into the `gl_lg_jobs` table.
+        4. If a job is successfully inserted, it is added to the `new_jobs` list and sent to Telegram.
+        5. If a job already exists in the database (based on a unique title constraint), it is skipped.
+        6. Commits the transaction to the database.
+        7. Returns the list of new jobs that were added to the database.
         Returns:
-            list: A list of new job offers (dictionaries) that were added to the CSV file.
+            List[Dict[str, Optional[str]]]: A list of dictionaries representing the new jobs that were added to the database.
         """
+        job_offers: List[Dict[str, str | None]] = self.get_list_jobs()
+        new_jobs: list = []
 
-        job_offers_lst: List[Dict[str, str | None]] = self.get_list_jobs()
-        existing_titles = set()
-        new_jobs_lst: list = []
+        with sqlite3.connect(self.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
 
-        try:
-            with open(self.csv_file, mode="r", newline="", encoding="utf-8") as file:
-                reader = csv.DictReader(file)
-                if reader.fieldnames and "title" in reader.fieldnames:
-                    existing_titles = {row["title"] for row in reader}
-        except FileNotFoundError:
-            pass
+            for job in job_offers:
+                try:
+                    cursor.execute("""
+                        INSERT INTO gl_lg_jobs (title, link, requirements)
+                        VALUES (:title, :link, :requirements)
+                    """, job)
+                    new_jobs.append(job)
+                    self._send_job_to_telegram(job)
+                except sqlite3.IntegrityError:
+                    # Skip if job already exists (based on unique title constraint)
+                    continue
 
-        with open(self.csv_file, mode="a", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(file, fieldnames=["title", "link", "requirements"])
-            if file.tell() == 0:
-                writer.writeheader()
+            conn.commit()
 
-            for job in job_offers_lst:
-                if job["title"] not in existing_titles:
-                    writer.writerow(job)
-                    new_jobs_lst.append(job)
+        return new_jobs
 
-        return new_jobs_lst
+    def _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:
+        """Creates a formatted message for Telegram."""
+        return (
+            "GLOBAL LOGIC PRESENT \n"
+            f"[{job['title']}]({job['link']})\n"
+            f"*Requirements:* {self._clean_text_for_telegram(job['requirements']) or 'N/A'}\n"
+        )
 
-    def send_new_jobs_to_telegram(self) -> None:
-        """
-        Send new job offers to Telegram chat.
+    def _send_job_to_telegram(self, job: Dict[str, Optional[str]]) -> None:
+        """Sends a job offer to a Telegram chat."""
+        message: str = self._create_telegram_message(job)
+        payload: Dict[str, Any] = {
+            "chat_id": self.chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True,
+        }
 
-        Args:
-            new_jobs (list): List of vacancies for sending.
-        """
-        base_url: str = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
-
-        new_jobs: List[Dict[str, str | None]] = self.check_and_add_jobs()
-
-        # If there are no new jobs, log a message and return
-        if not new_jobs:
-            logging.info("No new jobs to send to Telegram.")
-            return
-
-        for job in new_jobs:
-            message: str = (
-                "GLOBAL LOGIC PRESENT \n"
-                f"[{job['title']}]({job['link']})\n"
-                f"Requirements: {job['requirements'] or 'N/A'}"
-            )
-            payload: dict[str | Any] = {
-                "chat_id": self.chat_id,
-                "text": message,
-                "parse_mode": "Markdown",
-                "disable_web_page_preview": True,
-            }
+        while True:
             try:
-                response: requests.Response = requests.post(base_url, data=payload, timeout=10)
+                response: requests.Response = requests.post(
+                    self.TELEGRAM_API_URL.format(self.telegram_token),
+                    data=payload,
+                    timeout=60,
+                )
+                if response.status_code == 429:
+                    retry_time = self._get_retry_time(response)
+                    logging.warning(
+                        "Telegram API rate limit exceeded. Waiting and retrying after %s seconds.", retry_time
+                    )
+                    time.sleep(retry_time)
+                    continue
                 response.raise_for_status()
-                logging.info("Job sent to Telegram successfully!")
-            except requests.RequestException as e:
+                logging.info("Job sent to Telegram successfully.")
+                break
+            except requests.exceptions.HTTPError as e:
+                logging.error("HTTP error occurred: %s", e)
+                time.sleep(10)
+            except requests.exceptions.ConnectionError as e:
+                logging.error("Connection error occurred: %s", e)
+                time.sleep(10)
+            except requests.exceptions.Timeout as e:
+                logging.error("Timeout error occurred: %s", e)
+                time.sleep(10)
+            except requests.exceptions.RequestException as e:
                 logging.error("Failed to send job to Telegram: %s", e)
+                time.sleep(10)
+    
+    def _get_retry_time(self, response: requests.Response) -> int:
+        """Extracts retry time from the Telegram API response."""
+        try:
+            return int(response.json().get("parameters", {}).get("retry_after", 5))
+        except (ValueError, KeyError):
+            return 5
+
+    def list_jobs_in_db(self) -> List[Dict[str, str]]:
+        """Returns a list of all jobs in the database."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute("SELECT * FROM gl_lg_jobs")
+            return cursor.fetchall()
 
 if __name__ == "__main__":
+    load_dotenv()
+
     TOKEN: str | None = os.getenv("TELEGRAM_TOKEN")
     CHAT_ID: str | None = os.getenv("CHAT_ID")
-    scraper = GlobalLogicJobScraper(
-        csv_file="./csv_files/gl_logic_0_1.csv",
+    DB_PATH: str | None = os.getenv("DB_PATH")
+    gb_lg_scraper = GlobalLogicJobScraper(
         telegram_token=TOKEN,
         chat_id=CHAT_ID,
+        db_path=DB_PATH,
         keywords="python",
         experience="0-1+years",
         locations="ukraine",
     )
-    scraper.send_new_jobs_to_telegram()
+    gb_lg_scraper.check_and_add_jobs()
+    for gl_lg_job in gb_lg_scraper.list_jobs_in_db():
+        print(gl_lg_job)

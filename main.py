@@ -23,33 +23,34 @@ TOKEN: str | None = os.getenv("TELEGRAM_TOKEN")
 NO_EXP_TOKEN: str | None = os.getenv("NO_EXP_TELEGRAM_TOKEN")
 CHAT_ID: str | None = os.getenv("CHAT_ID")
 NO_EXP_CHAT_ID: str | None = os.getenv("NO_EXP_CHAT_ID")
+DB_PATH: str | None = os.getenv("DB_PATH")
 
 # Check new jobs for experience level 0-1 years on GlobalLogic
 GlobalLogicJobScraper(
-    csv_file="./csv_files/gl_logic_0_1.csv",
     telegram_token=TOKEN,
     chat_id=CHAT_ID,
+    db_path=DB_PATH,
     keywords="python",
     experience="0-1+years",
     locations="ukraine",
-).send_new_jobs_to_telegram()
+).check_and_add_jobs()
 
 # Check new jobs for experience level 1-3 years on GlobalLogic
 GlobalLogicJobScraper(
-    csv_file="./csv_files/gl_logic_1_3.csv",
     telegram_token=TOKEN,
     chat_id=CHAT_ID,
+    db_path=DB_PATH,
     keywords="python",
     experience="1-3+years",
     locations="ukraine",
-).send_new_jobs_to_telegram()
+).check_and_add_jobs()
 
 
 # Check new jobs for experience level 0-1 years on DOU
 DouJobScraper(
     telegram_token=TOKEN,
     chat_id=CHAT_ID,
-    csv_file="./csv_files/dou_0_1.csv",
+    db_path=DB_PATH,
     category="Python",
     experience="0-1",
 ).check_and_add_jobs()
@@ -58,7 +59,7 @@ DouJobScraper(
 DouJobScraper(
     telegram_token=TOKEN,
     chat_id=CHAT_ID,
-    csv_file="./csv_files/dou_1_3.csv",
+    db_path=DB_PATH,
     category="Python",
     experience="1-3",
 ).check_and_add_jobs()
@@ -67,6 +68,6 @@ DouJobScraper(
 DouJobScraper(
     telegram_token=NO_EXP_TOKEN,
     chat_id=NO_EXP_CHAT_ID,
-    csv_file="./csv_files/dou_0.csv",
+    db_path=DB_PATH,
     no_exp=True,
 ).check_and_add_jobs()
