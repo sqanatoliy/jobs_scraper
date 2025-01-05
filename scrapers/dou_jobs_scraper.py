@@ -125,7 +125,7 @@ class DouJobScraper:
                     sh_info TEXT,
                     category TEXT,
                     experience TEXT,
-                    UNIQUE(title, date, company)
+                    UNIQUE(title, date, company, category)
                 )
             """)
             conn.commit()
@@ -289,15 +289,21 @@ class DouJobScraper:
         except (ValueError, KeyError):
             return 5
 
-    def list_jobs_in_db(self) -> List[Dict[str, str]]:
+    def list_all_jobs_in_db(self) -> List[Dict[str, str]]:
         """Returns a list of all jobs in the database."""
         with sqlite3.connect(self.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute("SELECT * FROM dou_jobs")
             return cursor.fetchall()
+    def list_no_category_jobs_in_db(self) -> List[Dict[str, str]]:
+        """Returns a list of jobs in the database where category is 'No category'."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute("SELECT * FROM dou_jobs WHERE category = ?", ("No category",))
+            return cursor.fetchall()
 
 if __name__ == "__main__":
-    load_dotenv()
+    load_dotenv(dotenv_path='.env')
 
     TOKEN: str | None = os.getenv("TELEGRAM_TOKEN")
     NO_EXP_TOKEN: str | None = os.getenv("NO_EXP_TELEGRAM_TOKEN")
@@ -313,9 +319,45 @@ if __name__ == "__main__":
         no_exp=True,
     )
     dou_scraper.check_and_add_jobs()
-    for job_dou in dou_scraper.list_jobs_in_db():
-        print("ID:", job_dou[0], "\n", "Data:", job_dou[1], "\n", job_dou[2], job_dou[4])
-        print("Salary:", job_dou[5], "\n", "Place:", job_dou[6])
-        print(job_dou[7])
-        print(job_dou[8], "\n" + job_dou[9])
-        print()
+
+    # Check new jobs for experience level 0-1 years on DOU
+    dou_scraper_0_1 = DouJobScraper(
+        telegram_token=TOKEN,
+        chat_id=CHAT_ID,
+        db_path=DB_PATH,
+        category="Python",
+        experience="0-1",
+    )
+    dou_scraper_0_1.check_and_add_jobs()
+
+    # Check new jobs for experience level 1-3 years on DOU
+    dou_scraper_1_3 = DouJobScraper(
+        telegram_token=TOKEN,
+        chat_id=CHAT_ID,
+        db_path=DB_PATH,
+        category="Python",
+        experience="1-3",
+    )
+    dou_scraper_1_3.check_and_add_jobs()
+
+    # for job_dou in dou_scraper.list_jobs_in_db():
+    #     print("ID:", job_dou[0], "\n", "Data:", job_dou[1], "\n", job_dou[2], job_dou[4])
+    #     print("Salary:", job_dou[5], "\n", "Place:", job_dou[6])
+    #     print(job_dou[7])
+    #     print(job_dou[8], "\n" + job_dou[9])
+    #     print()
+
+    job_title_on_site = []
+    job_list_on_site = dou_scraper.get_list_jobs()
+    for job_on_site in job_list_on_site:
+        job_title_on_site.append(job_on_site["title"])
+
+    job_title_in_db = []
+    job_list_in_db = dou_scraper.list_all_jobs_in_db()
+    for job_db in job_list_in_db:
+        job_title_in_db.append(job_db[2])
+
+    missing_jobs = list(set(job_title_on_site) - set(job_title_in_db))
+    print(len(job_title_on_site))
+    print(len(job_title_in_db))
+    print(missing_jobs)
