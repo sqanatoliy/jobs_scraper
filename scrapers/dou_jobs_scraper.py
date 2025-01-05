@@ -108,6 +108,7 @@ class DouJobScraper:
         self.base_url = self.BASE_URL_NO_EXP if no_exp else self.BASE_URL
         self.full_url: str = self._construct_full_url()
         self._initialize_database()
+        self._create_indexes()
 
     def _initialize_database(self) -> None:
         """Creates a database table if it doesn't exist."""
@@ -128,6 +129,14 @@ class DouJobScraper:
                     UNIQUE(title, date, company, category)
                 )
             """)
+            conn.commit()
+
+    def _create_indexes(self) -> None:
+        """Creates indexes on relevant columns to optimize database queries."""
+        with sqlite3.connect(self.db_path, check_same_thread=False) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_title_date_company_category ON dou_jobs (title, date, company, category)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_category ON dou_jobs (category)")
             conn.commit()
 
     def _construct_full_url(self) -> str:
@@ -203,26 +212,34 @@ class DouJobScraper:
             logging.error("Error extracting job data: %s", err)
             return None
 
+    def _normalize_job_data(self, job: Dict[str, str | None]) -> Dict[str, str | None]:
+        """Normalizes job data before adding it to the database."""
+        job['title'] = job['title'].strip().lower() if job['title'] else None
+        job['company'] = job['company'].strip().lower() if job['company'] else None
+        job['category'] = job['category'].strip().lower() if job['category'] else None
+        job['date'] = job['date'].strip() if job['date'] else None
+        return job
+
     def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
         """Checks for new jobs and adds them to the database."""
         new_jobs: list = []
         job_offers: List[Dict[str, str | None]] = self.get_list_jobs()
 
-
         with sqlite3.connect(self.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
 
             for job in job_offers:
-                try:
+                job = self._normalize_job_data(job)
+                cursor.execute("""
+                    SELECT 1 FROM dou_jobs WHERE title = :title AND date = :date AND company = :company AND category = :category
+                """, job)
+                if not cursor.fetchone():
                     cursor.execute("""
-                        INSERT INTO dou_jobs (date, title, link, company, salary, cities, sh_info, category, experience)
+                        INSERT OR IGNORE INTO dou_jobs (date, title, link, company, salary, cities, sh_info, category, experience)
                         VALUES (:date, :title, :link, :company, :salary, :cities, :sh_info, :category, :experience)
                     """, job)
                     new_jobs.append(job)
                     self._send_job_to_telegram(job)
-                except sqlite3.IntegrityError:
-                    # Skip if job already exists (based on unique title, date, company)
-                    continue
 
             conn.commit()
 
@@ -320,25 +337,25 @@ if __name__ == "__main__":
     )
     dou_scraper.check_and_add_jobs()
 
-    # Check new jobs for experience level 0-1 years on DOU
-    dou_scraper_0_1 = DouJobScraper(
-        telegram_token=TOKEN,
-        chat_id=CHAT_ID,
-        db_path=DB_PATH,
-        category="Python",
-        experience="0-1",
-    )
-    dou_scraper_0_1.check_and_add_jobs()
+    # # Check new jobs for experience level 0-1 years on DOU
+    # dou_scraper_0_1 = DouJobScraper(
+    #     telegram_token=TOKEN,
+    #     chat_id=CHAT_ID,
+    #     db_path=DB_PATH,
+    #     category="Python",
+    #     experience="0-1",
+    # )
+    # dou_scraper_0_1.check_and_add_jobs()
 
-    # Check new jobs for experience level 1-3 years on DOU
-    dou_scraper_1_3 = DouJobScraper(
-        telegram_token=TOKEN,
-        chat_id=CHAT_ID,
-        db_path=DB_PATH,
-        category="Python",
-        experience="1-3",
-    )
-    dou_scraper_1_3.check_and_add_jobs()
+    # # Check new jobs for experience level 1-3 years on DOU
+    # dou_scraper_1_3 = DouJobScraper(
+    #     telegram_token=TOKEN,
+    #     chat_id=CHAT_ID,
+    #     db_path=DB_PATH,
+    #     category="Python",
+    #     experience="1-3",
+    # )
+    # dou_scraper_1_3.check_and_add_jobs()
 
     # for job_dou in dou_scraper.list_jobs_in_db():
     #     print("ID:", job_dou[0], "\n", "Data:", job_dou[1], "\n", job_dou[2], job_dou[4])
@@ -353,7 +370,7 @@ if __name__ == "__main__":
         job_title_on_site.append(job_on_site["title"])
 
     job_title_in_db = []
-    job_list_in_db = dou_scraper.list_all_jobs_in_db()
+    job_list_in_db = dou_scraper.list_no_category_jobs_in_db()
     for job_db in job_list_in_db:
         job_title_in_db.append(job_db[2])
 
@@ -361,3 +378,4 @@ if __name__ == "__main__":
     print(len(job_title_on_site))
     print(len(job_title_in_db))
     print(missing_jobs)
+    print(job_title_in_db)
