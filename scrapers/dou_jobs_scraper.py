@@ -51,7 +51,11 @@ class DouJobScraper:
         BASE_URL_NO_EXP (str): The base URL for job listings with no experience required.
         TELEGRAM_API_URL (str): The URL for the Telegram API to send messages.
     Methods:
-        __init__(telegram_token, chat_id, db_path, category=None, experience=None, city=None, remote=False, relocation=False, no_exp=False):
+        __init__(
+        telegram_token, chat_id, db_path, 
+        category=None, experience=None, city=None, 
+        remote=False, relocation=False, no_exp=False
+        ):
             Initializes the DouJobScraper with the given parameters.
         _initialize_database():
             Creates a database table if it doesn't exist.
@@ -119,6 +123,8 @@ class DouJobScraper:
                     salary TEXT,
                     cities TEXT,
                     sh_info TEXT,
+                    category TEXT,
+                    experience TEXT,
                     UNIQUE(title, date, company)
                 )
             """)
@@ -165,8 +171,8 @@ class DouJobScraper:
                 if job:
                     job_offers.append(job)
 
-        except requests.RequestException as e:
-            logging.error("Error retrieving data from the site: %s", e)
+        except requests.RequestException as err:
+            logging.error("Error retrieving data from the site: %s", err)
 
         return job_offers[::-1]
 
@@ -179,6 +185,8 @@ class DouJobScraper:
             salary_tag: Tag | None = job_card.select_one("span.salary")
             cities_tag: Tag | None = job_card.select_one("span.cities")
             short_info_tag: Tag | None = job_card.select_one("div.sh-info")
+            category_job: str = self.category if self.category else "No category"
+            experience_job: str = self.experience if self.experience else "No experience"
 
             return {
                 "date": date,
@@ -188,6 +196,8 @@ class DouJobScraper:
                 "salary": salary_tag.text.strip() if salary_tag else None,
                 "cities": cities_tag.text.strip() if cities_tag else None,
                 "sh_info": short_info_tag.text.strip() if short_info_tag else None,
+                "category": category_job,
+                "experience": experience_job,
             }
         except AttributeError as err:
             logging.error("Error extracting job data: %s", err)
@@ -196,7 +206,7 @@ class DouJobScraper:
     def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
         """Checks for new jobs and adds them to the database."""
         new_jobs: list = []
-        job_offers = self.get_list_jobs()
+        job_offers: List[Dict[str, str | None]] = self.get_list_jobs()
 
 
         with sqlite3.connect(self.db_path) as conn:
@@ -205,8 +215,8 @@ class DouJobScraper:
             for job in job_offers:
                 try:
                     cursor.execute("""
-                        INSERT INTO dou_jobs (date, title, link, company, salary, cities, sh_info)
-                        VALUES (:date, :title, :link, :company, :salary, :cities, :sh_info)
+                        INSERT INTO dou_jobs (date, title, link, company, salary, cities, sh_info, category, experience)
+                        VALUES (:date, :title, :link, :company, :salary, :cities, :sh_info, :category, :experience)
                     """, job)
                     new_jobs.append(job)
                     self._send_job_to_telegram(job)
@@ -250,24 +260,25 @@ class DouJobScraper:
                 if response.status_code == 429:
                     retry_time = self._get_retry_time(response)
                     logging.warning(
-                        "Telegram API rate limit exceeded. Waiting and retrying after %s seconds.", retry_time
+                        "Telegram API rate limit exceeded. Waiting and retrying after %s seconds.", 
+                        retry_time
                     )
                     time.sleep(retry_time)
                     continue
                 response.raise_for_status()
                 logging.info("Job sent to Telegram successfully.")
                 break
-            except requests.exceptions.HTTPError as e:
-                logging.error("HTTP error occurred: %s", e)
+            except requests.exceptions.HTTPError as err:
+                logging.error("HTTP error occurred: %s", err)
                 time.sleep(10)
-            except requests.exceptions.ConnectionError as e:
-                logging.error("Connection error occurred: %s", e)
+            except requests.exceptions.ConnectionError as err:
+                logging.error("Connection error occurred: %s", err)
                 time.sleep(10)
-            except requests.exceptions.Timeout as e:
-                logging.error("Timeout error occurred: %s", e)
+            except requests.exceptions.Timeout as err:
+                logging.error("Timeout error occurred: %s", err)
                 time.sleep(10)
-            except requests.exceptions.RequestException as e:
-                logging.error("Failed to send job to Telegram: %s", e)
+            except requests.exceptions.RequestException as err:
+                logging.error("Failed to send job to Telegram: %s", err)
                 time.sleep(10)
 
     def _get_retry_time(self, response: requests.Response) -> int:
@@ -292,17 +303,18 @@ if __name__ == "__main__":
     CHAT_ID: str | None = os.getenv("CHAT_ID")
     NO_EXP_CHAT_ID: str | None = os.getenv("NO_EXP_CHAT_ID")
     DB_PATH: str | None = os.getenv("DB_PATH")
+
     # Check new jobs for no experience level on DOU
     dou_scraper = DouJobScraper(
-        telegram_token=TOKEN,
-        chat_id=CHAT_ID,
+        telegram_token=NO_EXP_TOKEN,
+        chat_id=NO_EXP_CHAT_ID,
         db_path=DB_PATH,
-        category="Python",
-        experience="0-1",
+        no_exp=True,
     )
     dou_scraper.check_and_add_jobs()
     for job_dou in dou_scraper.list_jobs_in_db():
-        print(job_dou[0], job_dou[1], job_dou[2], job_dou[4])
-        print(job_dou[5], job_dou[6])
+        print("ID:", job_dou[0], "\n", "Data:", job_dou[1], "\n", job_dou[2], job_dou[4])
+        print("Salary:", job_dou[5], "\n", "Place:", job_dou[6])
         print(job_dou[7])
+        print(job_dou[8], "\n" + job_dou[9])
         print()
