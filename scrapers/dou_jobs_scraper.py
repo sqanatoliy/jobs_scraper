@@ -235,6 +235,7 @@ class DouJobScraper:
             f"*Date:* {job['date']}\n"
             f"[{job['title']}]({job['link']}) *{job['company']}*\n"
             f"*Experienced:* {experience} years\n"
+            f"*Category:* {job['category']}\n"
             f"*Salary:* {job['salary'] or 'N/A'}\n"
             f"*Cities:* {job['cities']}\n"
             f"*Info:* {self._clean_text_for_telegram(job['sh_info'] or 'N/A')}"
