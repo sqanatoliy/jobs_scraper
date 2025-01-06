@@ -30,7 +30,6 @@ Usage:
         $ python dou_jobs_scraper.py
 """
 from datetime import datetime
-import locale
 import sqlite3
 import time
 import os
@@ -42,7 +41,6 @@ import requests
 from bs4 import BeautifulSoup, Tag, ResultSet
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-locale.setlocale(locale.LC_TIME, "uk_UA.UTF-8")
 
 
 class DouJobScraper:
