@@ -227,21 +227,32 @@ class DouJobScraper:
 
         with sqlite3.connect(self.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
-
             for job in job_offers:
-                job = self._normalize_job_data(job)
-                cursor.execute("""
-                    SELECT 1 FROM dou_jobs WHERE title = :title AND date = :date AND company = :company AND category = :category
-                """, job)
-                if not cursor.fetchone():
-                    cursor.execute("""
-                        INSERT OR IGNORE INTO dou_jobs (date, title, link, company, salary, cities, sh_info, category, experience)
-                        VALUES (:date, :title, :link, :company, :salary, :cities, :sh_info, :category, :experience)
-                    """, job)
-                    new_jobs.append(job)
-                    self._send_job_to_telegram(job)
+                try:
+                    cursor.execute("BEGIN")
+                    job = self._normalize_job_data(job)
 
-            conn.commit()
+                    cursor.execute("""
+                        SELECT 1 FROM dou_jobs WHERE title = :title AND date = :date AND company = :company AND category = :category
+                    """, job)
+
+                    if not cursor.fetchone():
+                        try:
+                            cursor.execute("""
+                                INSERT INTO dou_jobs (date, title, link, company, salary, cities, sh_info, category, experience)
+                                VALUES (:date, :title, :link, :company, :salary, :cities, :sh_info, :category, :experience)
+                            """, job)
+                            new_jobs.append(job)
+                            self._send_job_to_telegram(job)
+                        except sqlite3.IntegrityError as e:
+                            logging.warning("Duplicate job entry detected: %s - %s - %s", job['title'], job['company'], e)
+                        except sqlite3.Error as e:
+                            logging.error("Error inserting job into database: %s - %s", job, e)
+
+                    conn.commit()
+                except Exception as e:  # Catch all exceptions
+                    conn.rollback()
+                    logging.error("An unexpected error occurred: %s", e)
 
         return new_jobs
 
