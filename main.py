@@ -46,7 +46,7 @@ GlobalLogicJobScraper(
 ).check_and_add_jobs()
 
 
-# Check new jobs for experience level 0-1 years on DOU
+# Check new Python jobs for experience level 0-1 years on DOU
 DouJobScraper(
     telegram_token=TOKEN,
     chat_id=CHAT_ID,
@@ -55,7 +55,7 @@ DouJobScraper(
     experience="0-1",
 ).check_and_add_jobs()
 
-# Check new jobs for experience level 1-3 years on DOU
+# Check new Python jobs for experience level 1-3 years on DOU
 DouJobScraper(
     telegram_token=TOKEN,
     chat_id=CHAT_ID,
@@ -64,10 +64,19 @@ DouJobScraper(
     experience="1-3",
 ).check_and_add_jobs()
 
-# Check new jobs for no experience level on DOU
+# Check new jobs for all category of no experience level on DOU
 DouJobScraper(
     telegram_token=NO_EXP_TOKEN,
     chat_id=NO_EXP_CHAT_ID,
     db_path=DB_PATH,
     no_exp=True,
+).check_and_add_jobs()
+
+# Check new Support jobs for experience level 0-1 years on DOU
+DouJobScraper(
+    telegram_token=NO_EXP_TOKEN,
+    chat_id=NO_EXP_CHAT_ID,
+    db_path=DB_PATH,
+    category="Support",
+    experience="0-1",
 ).check_and_add_jobs()
