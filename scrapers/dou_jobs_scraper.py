@@ -221,10 +221,7 @@ class DouJobScraper:
                 # Delete the year from the date
                 date_str = date_str.split()[:2]  # Leave only day and month
                 date_str = " ".join(date_str)
-
-            # Парсимо дату без року
-            date: datetime = datetime.strptime(date_str, "%d %B")
-            return date.strftime("%d %B")  # return date without year
+            return date_str
         except ValueError as err:
             raise ValueError(f"Impossible processing date: {date_str}. Error: {err}") from err
 
