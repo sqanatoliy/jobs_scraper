@@ -29,6 +29,8 @@ Usage:
         $ export DB_PATH="path_to_your_db.sqlite"
         $ python dou_jobs_scraper.py
 """
+from datetime import datetime
+import locale
 import sqlite3
 import time
 import os
@@ -40,6 +42,7 @@ import requests
 from bs4 import BeautifulSoup, Tag, ResultSet
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+locale.setlocale(locale.LC_TIME, "uk_UA.UTF-8")
 
 
 class DouJobScraper:
@@ -212,12 +215,27 @@ class DouJobScraper:
             logging.error("Error extracting job data: %s", err)
             return None
 
+    def _normalize_date(self, date_str: str) -> str:
+        """Normalizes the date format for consistency."""
+        try:
+            # Check if the date contains the year 2024 or 2025
+            if any(year in date_str for year in ["2024", "2025"]):
+                # Delete the year from the date
+                date_str = date_str.split()[:2]  # Leave only day and month
+                date_str = " ".join(date_str)
+
+            # Парсимо дату без року
+            date: datetime = datetime.strptime(date_str, "%d %B")
+            return date.strftime("%d %B")  # return date without year
+        except ValueError as err:
+            raise ValueError(f"Impossible processing date: {date_str}. Error: {err}") from err
+
     def _normalize_job_data(self, job: Dict[str, str | None]) -> Dict[str, str | None]:
         """Normalizes job data before adding it to the database."""
         job['title'] = job['title'].strip().lower() if job['title'] else None
         job['company'] = job['company'].strip().lower() if job['company'] else None
         job['category'] = job['category'].strip().lower() if job['category'] else None
-        job['date'] = job['date'].strip() if job['date'] else None
+        job['date'] = self._normalize_date(job['date'].strip()) if job['date'] else None
         return job
 
     def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
@@ -317,18 +335,65 @@ class DouJobScraper:
         except (ValueError, KeyError):
             return 5
 
+
     def list_all_jobs_in_db(self) -> List[Dict[str, str]]:
         """Returns a list of all jobs in the database."""
         with sqlite3.connect(self.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute("SELECT * FROM dou_jobs")
             return cursor.fetchall()
+
     def list_no_category_jobs_in_db(self) -> List[Dict[str, str]]:
         """Returns a list of jobs in the database where category is 'No category'."""
         with sqlite3.connect(self.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute("SELECT * FROM dou_jobs WHERE category = ?", ("No category",))
             return cursor.fetchall()
+
+    def list_same_title_jobs_in_db(self, title: str) -> List[Dict[str, str]]:
+        """Returns a list of jobs in the database with the same title."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+
+            # Виконуємо запит для пошуку вакансій з однаковим title
+            cursor.execute("SELECT * FROM dou_jobs WHERE title = ?", (title,))
+            
+            # Отримуємо всі результати
+            rows = cursor.fetchall()
+
+            # Отримуємо назви колонок
+            column_names = [desc[0] for desc in cursor.description]
+            
+            # Перетворюємо кожен рядок у словник
+            return [dict(zip(column_names, row)) for row in rows]
+
+    def dublicate_jobs_in_db(self) -> List[Dict[str, str]]:
+        """
+        Returns a list of duplicate jobs in the database based on title, 
+        date, company, and category.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+
+            # SQL query to find duplicates
+            cursor.execute("""
+                SELECT * 
+                FROM dou_jobs
+                WHERE (title, date, company, category) IN (
+                    SELECT title, date, company, category
+                    FROM dou_jobs
+                    GROUP BY title, date, company, category
+                    HAVING COUNT(*) > 1
+                )
+                ORDER BY title, date, company, category
+            """)
+
+            # Fetch all duplicates
+            duplicates = cursor.fetchall()
+            # Get column names for returning data as a list of dictionaries
+            column_names = [desc[0] for desc in cursor.description]
+            return [dict(zip(column_names, row)) for row in duplicates]
+
 
 if __name__ == "__main__":
     load_dotenv(dotenv_path='.env')
@@ -346,47 +411,10 @@ if __name__ == "__main__":
         db_path=DB_PATH,
         no_exp=True,
     )
-    dou_scraper.check_and_add_jobs()
+    # dou_scraper.check_and_add_jobs()
 
-    # # Check new jobs for experience level 0-1 years on DOU
-    # dou_scraper_0_1 = DouJobScraper(
-    #     telegram_token=TOKEN,
-    #     chat_id=CHAT_ID,
-    #     db_path=DB_PATH,
-    #     category="Python",
-    #     experience="0-1",
-    # )
-    # dou_scraper_0_1.check_and_add_jobs()
-
-    # # Check new jobs for experience level 1-3 years on DOU
-    # dou_scraper_1_3 = DouJobScraper(
-    #     telegram_token=TOKEN,
-    #     chat_id=CHAT_ID,
-    #     db_path=DB_PATH,
-    #     category="Python",
-    #     experience="1-3",
-    # )
-    # dou_scraper_1_3.check_and_add_jobs()
-
-    # for job_dou in dou_scraper.list_jobs_in_db():
-    #     print("ID:", job_dou[0], "\n", "Data:", job_dou[1], "\n", job_dou[2], job_dou[4])
-    #     print("Salary:", job_dou[5], "\n", "Place:", job_dou[6])
-    #     print(job_dou[7])
-    #     print(job_dou[8], "\n" + job_dou[9])
-    #     print()
-
-    job_title_on_site = []
-    job_list_on_site = dou_scraper.get_list_jobs()
-    for job_on_site in job_list_on_site:
-        job_title_on_site.append(job_on_site["title"])
-
-    job_title_in_db = []
-    job_list_in_db = dou_scraper.list_no_category_jobs_in_db()
-    for job_db in job_list_in_db:
-        job_title_in_db.append(job_db[2])
-
-    missing_jobs = list(set(job_title_on_site) - set(job_title_in_db))
-    print(len(job_title_on_site))
-    print(len(job_title_in_db))
-    print(missing_jobs)
-    print(job_title_in_db)
+    # 
+    for j in dou_scraper.list_all_jobs_in_db():
+        print(j[0])
+        print(j[1], j[2])
+        print(j[4])
