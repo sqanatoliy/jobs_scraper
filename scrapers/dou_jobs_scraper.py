@@ -29,7 +29,6 @@ Usage:
         $ export DB_PATH="path_to_your_db.sqlite"
         $ python dou_jobs_scraper.py
 """
-from datetime import datetime
 import sqlite3
 import time
 import os
@@ -217,7 +216,7 @@ class DouJobScraper:
         """Normalizes the date format for consistency."""
         try:
             # Check if the date contains the year 2024 or 2025
-            if any(year in date_str for year in ["2024", "2025"]):
+            if any(year in date_str for year in ["2024", "2025", "2026", "2027", "2028", "2029", "2030"]):
                 # Delete the year from the date
                 date_str = date_str.split()[:2]  # Leave only day and month
                 date_str = " ".join(date_str)
@@ -264,8 +263,8 @@ class DouJobScraper:
 
                     conn.commit()
                 except Exception as e:  # Catch all exceptions
-                    conn.rollback()
                     logging.error("An unexpected error occurred: %s", e)
+                    conn.rollback()
 
         return new_jobs
 
@@ -273,6 +272,7 @@ class DouJobScraper:
         """Creates a formatted message for Telegram."""
         experience: str = self.experience.replace("+", " ") if self.experience else "No experience"
         return (
+            "DOU.UA PRESENT \n"
             f"*Date:* {job['date']}\n"
             f"[{job['title']}]({job['link']}) *{job['company']}*\n"
             f"*Experienced:* {experience} years\n"
@@ -408,8 +408,7 @@ if __name__ == "__main__":
     )
     # dou_scraper.check_and_add_jobs()
 
-    # 
     for j in dou_scraper.list_all_jobs_in_db():
         print(j[0])
-        print(j[1], j[2])
-        print(j[4])
+        print(j[1])
+

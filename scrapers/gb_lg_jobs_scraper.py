@@ -76,6 +76,7 @@ class GlobalLogicJobScraper:
         self.base_url = self.BASE_URL
         self.full_url: str = self._construct_full_url()
         self._initialize_database()
+        self._create_indexes()
 
     def _initialize_database(self) -> None:
         """Creates a database table if it doesn't exist."""
@@ -90,6 +91,14 @@ class GlobalLogicJobScraper:
                     UNIQUE(title, link)
                 )
             """)
+            conn.commit()
+
+    def _create_indexes(self) -> None:
+        """Creates indexes for the database table."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute("CREATE INDEX IF NOT EXISTS title_index ON gl_lg_jobs (title)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS link_index ON gl_lg_jobs (link)")
             conn.commit()
 
     def _construct_full_url(self) -> str:
@@ -160,10 +169,16 @@ class GlobalLogicJobScraper:
                         {"title": title, "link": link, "requirements": requirements}
                     )
 
-        except requests.RequestException as e:
-            logging.error("Error retrieving data from the site: %s", e)
+        except requests.RequestException as err:
+            logging.error("Error retrieving data from the site: %s", err)
 
         return job_offers[::-1]
+    
+    def _normalize_job_data(self, job: Dict[str, Optional[str]]) -> Dict[str, Optional[str]]:
+        """Normalizes job data before inserting into the database."""
+        job['title'] = job['title'].strip().lower() if job['title'] else None
+        job['link'] = job['link'].strip() if job['link'] else None
+        return job
 
     def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
         """
@@ -187,18 +202,26 @@ class GlobalLogicJobScraper:
 
             for job in job_offers:
                 try:
+                    job: Dict[str, str | None] = self._normalize_job_data(job)
                     cursor.execute("""
-                        INSERT INTO gl_lg_jobs (title, link, requirements)
-                        VALUES (:title, :link, :requirements)
+                        SELECT 1 FROM dou_jobs WHERE title = :title AND link = :link
                     """, job)
-                    new_jobs.append(job)
-                    self._send_job_to_telegram(job)
-                except sqlite3.IntegrityError:
-                    # Skip if job already exists (based on unique title constraint)
-                    continue
-
-            conn.commit()
-
+                    if not cursor.fetchone():
+                        try:
+                            cursor.execute("""
+                                INSERT INTO gl_lg_jobs (title, link, requirements)
+                                VALUES (:title, :link, :requirements)
+                            """, job)
+                            new_jobs.append(job)
+                            self._send_job_to_telegram(job)
+                        except sqlite3.IntegrityError as err:
+                            logging.warning("Duplicate job entry detected: %s - %s - %s", job['title'], job['link'], err)
+                        except sqlite3.Error as err:
+                            logging.error("Error inserting job into the database: %s - %s", job, err)
+                    conn.commit()
+                except Exception as err:
+                    logging.error("Error occurred while checking and adding jobs: %s", err)
+                    conn.rollback()
         return new_jobs
 
     def _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:
@@ -236,19 +259,19 @@ class GlobalLogicJobScraper:
                 response.raise_for_status()
                 logging.info("Job sent to Telegram successfully.")
                 break
-            except requests.exceptions.HTTPError as e:
-                logging.error("HTTP error occurred: %s", e)
+            except requests.exceptions.HTTPError as err:
+                logging.error("HTTP error occurred: %s", err)
                 time.sleep(10)
-            except requests.exceptions.ConnectionError as e:
-                logging.error("Connection error occurred: %s", e)
+            except requests.exceptions.ConnectionError as err:
+                logging.error("Connection error occurred: %s", err)
                 time.sleep(10)
-            except requests.exceptions.Timeout as e:
-                logging.error("Timeout error occurred: %s", e)
+            except requests.exceptions.Timeout as err:
+                logging.error("Timeout error occurred: %s", err)
                 time.sleep(10)
-            except requests.exceptions.RequestException as e:
-                logging.error("Failed to send job to Telegram: %s", e)
+            except requests.exceptions.RequestException as err:
+                logging.error("Failed to send job to Telegram: %s", err)
                 time.sleep(10)
-    
+
     def _get_retry_time(self, response: requests.Response) -> int:
         """Extracts retry time from the Telegram API response."""
         try:
