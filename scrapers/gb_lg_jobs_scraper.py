@@ -204,7 +204,7 @@ class GlobalLogicJobScraper:
                 try:
                     job: Dict[str, str | None] = self._normalize_job_data(job)
                     cursor.execute("""
-                        SELECT 1 FROM dou_jobs WHERE title = :title AND link = :link
+                        SELECT 1 FROM gl_lg_jobs WHERE title = :title AND link = :link
                     """, job)
                     if not cursor.fetchone():
                         try:

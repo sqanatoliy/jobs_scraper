@@ -361,6 +361,23 @@ class DouJobScraper:
             
             # Перетворюємо кожен рядок у словник
             return [dict(zip(column_names, row)) for row in rows]
+        
+    def list_jobs_by_category(self, category: str) -> List[Dict[str, str]]:
+        """Returns a list of jobs in the database belonging to the specified category."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+
+            # Виконуємо запит для пошуку вакансій у вказаній категорії
+            cursor.execute("SELECT * FROM dou_jobs WHERE category = ?", (category,))
+            
+            # Отримуємо всі результати
+            rows = cursor.fetchall()
+
+            # Отримуємо назви колонок
+            column_names = [desc[0] for desc in cursor.description]
+            
+            # Перетворюємо кожен рядок у словник
+            return [dict(zip(column_names, row)) for row in rows]
 
     def dublicate_jobs_in_db(self) -> List[Dict[str, str]]:
         """
@@ -407,8 +424,3 @@ if __name__ == "__main__":
         no_exp=True,
     )
     # dou_scraper.check_and_add_jobs()
-
-    for j in dou_scraper.list_all_jobs_in_db():
-        print(j[0])
-        print(j[1])
-
