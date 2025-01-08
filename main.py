@@ -65,10 +65,12 @@ DouJobScraper(
 ).check_and_add_jobs()
 
 # Check new jobs for all category of no experience level on DOU
+# For the “No experience” category only, set city='remote' to select remote offers
 DouJobScraper(
     telegram_token=NO_EXP_TOKEN,
     chat_id=NO_EXP_CHAT_ID,
     db_path=DB_PATH,
+    city="remote",
     no_exp=True,
 ).check_and_add_jobs()
 
@@ -79,4 +81,5 @@ DouJobScraper(
     db_path=DB_PATH,
     category="Support",
     experience="0-1",
+    remote=True,
 ).check_and_add_jobs()
