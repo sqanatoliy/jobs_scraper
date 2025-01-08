@@ -241,7 +241,6 @@ class DouJobScraper:
             cursor: sqlite3.Cursor = conn.cursor()
             for job in job_offers:
                 try:
-                    cursor.execute("BEGIN")
                     job = self._normalize_job_data(job)
 
                     cursor.execute("""
@@ -424,3 +423,4 @@ if __name__ == "__main__":
         no_exp=True,
     )
     # dou_scraper.check_and_add_jobs()
+
