@@ -173,6 +173,8 @@ class GlobalLogicJobScraper:
                 except Exception as err:
                     logging.error("Error occurred while checking and adding jobs: %s", err)
                     conn.rollback()
+        if not new_jobs:
+            logging.info("No new jobs found at GlobalLogic.")
         return new_jobs
 
     def _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:

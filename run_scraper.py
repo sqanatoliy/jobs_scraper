@@ -34,7 +34,6 @@ from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_E
 from src.gb_lg_job_scraper import GlobalLogicJobScraper
 from src.dou_job_scraper import DouJobScraper
 
-
 # GLOBAL LOGIC CONFIGURATIONS ==========================================================
 # Configuration for checking new jobs for experience level 0-1 years on GlobalLogic
 gl_lg_python_0_1 = GlobalLogicScraperConfig(
@@ -93,27 +92,34 @@ dou_support_remote_config_0_1 = DouScraperConfig(
     experience="0-1",
     remote=True,
 )
+
+
 # END DOU CONFIGURATIONS ============================================================
 
-# GLOBAL LOGIC JOB SCRAPING ==========================================================
-# Check new Python jobs for experience level 0-1 years on GlobalLogic
-GlobalLogicJobScraper(gl_lg_python_0_1).check_and_add_jobs()
+def main():
+    # GLOBAL LOGIC JOB SCRAPING ==========================================================
+    # Check new Python jobs for experience level 0-1 years on GlobalLogic
+    GlobalLogicJobScraper(gl_lg_python_0_1).check_and_add_jobs()
 
-# Check new Python jobs for experience level 1-3 years on GlobalLogic
-GlobalLogicJobScraper(gl_lg_python_1_3).check_and_add_jobs()
-# END GLOBAL LOGIC JOB SCRAPING ======================================================
+    # Check new Python jobs for experience level 1-3 years on GlobalLogic
+    GlobalLogicJobScraper(gl_lg_python_1_3).check_and_add_jobs()
+    # END GLOBAL LOGIC JOB SCRAPING ======================================================
 
-# DOU JOB SCRAPING ===================================================================
-# Check new Python jobs for experience level 0-1 years on DOU
-DouJobScraper(dou_python_config_0_1).check_and_add_jobs()
+    # DOU JOB SCRAPING ===================================================================
+    # Check new Python jobs for experience level 0-1 years on DOU
+    DouJobScraper(dou_python_config_0_1).check_and_add_jobs()
 
-# Check new Python jobs for experience level 1-3 years on DOU
-DouJobScraper(dou_python_config_1_3).check_and_add_jobs()
+    # Check new Python jobs for experience level 1-3 years on DOU
+    DouJobScraper(dou_python_config_1_3).check_and_add_jobs()
 
-# Check new jobs for all remote category of no experience level on DOU
-# For the “No experience” category only, set city='remote' to select remote offers
-DouJobScraper(dou_no_exp_remote_config).check_and_add_jobs()
+    # Check new jobs for all remote category of no experience level on DOU
+    # For the “No experience” category only, set city='remote' to select remote offers
+    DouJobScraper(dou_no_exp_remote_config).check_and_add_jobs()
 
-# Check new Support remote jobs for experience level 0-1 years on DOU
-DouJobScraper(dou_support_remote_config_0_1).check_and_add_jobs()
-# END DOU JOB SCRAPING ===============================================================
+    # Check new Support remote jobs for experience level 0-1 years on DOU
+    DouJobScraper(dou_support_remote_config_0_1).check_and_add_jobs()
+    # END DOU JOB SCRAPING ===============================================================
+
+
+if __name__ == "__main__":
+    main()

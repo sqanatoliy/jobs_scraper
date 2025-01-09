@@ -186,7 +186,8 @@ class DouJobScraper:
                 except Exception as e:  # Catch all exceptions
                     logging.error("An unexpected error occurred: %s", e)
                     conn.rollback()
-
+        if not new_jobs:
+            logging.info("No new jobs found at DOU.")
         return new_jobs
 
     def _create_telegram_message(self, job: DouJob) -> str:
