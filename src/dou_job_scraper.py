@@ -147,10 +147,10 @@ class DouJobScraper:
 
     def _normalize_job_data(self, job: DouJob) -> DouJob:
         """Normalizes job data before adding it to the database."""
-        job['title'] = job['title'].strip().lower() if job.title else None
-        job['company'] = job['company'].strip().lower() if job.company else None
-        job['category'] = job['category'].strip().lower() if job.category else None
-        job['date'] = self._normalize_date(job['date'].strip()) if job.date else None
+        job.title = job.title.strip().lower() if job.title else None
+        job.company = job.company.strip().lower() if job.company else None
+        job.category = job.category.strip().lower() if job.category else None
+        job.date = self._normalize_date(job.date.strip()) if job.date else None
         return job
 
     def check_and_add_jobs(self) -> List[DouJob]:
@@ -189,21 +189,21 @@ class DouJobScraper:
 
         return new_jobs
 
-    def _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:
+    def _create_telegram_message(self, job: DouJob) -> str:
         """Creates a formatted message for Telegram."""
         experience: str = self.config.experience.replace("+", " ") if self.config.experience else "No experience"
         return (
             "DOU.UA PRESENT \n"
-            f"*Date:* {job['date']}\n"
-            f"[{job['title']}]({job['link']}) *{job['company']}*\n"
+            f"*Date:* {job.date}\n"
+            f"[{job.title}]({job.link}) *{job.company}*\n"
             f"*Experienced:* {experience} years\n"
-            f"*Category:* {job['category']}\n"
-            f"*Salary:* {job['salary'] or 'N/A'}\n"
-            f"*Cities:* {job['cities']}\n"
-            f"*Info:* {self._clean_text_for_telegram(job['sh_info'] or 'N/A')}"
+            f"*Category:* {job.category}\n"
+            f"*Salary:* {job.salary or 'N/A'}\n"
+            f"*Cities:* {job.cities}\n"
+            f"*Info:* {self._clean_text_for_telegram(job.sh_info or 'N/A')}"
         )
 
-    def _send_job_to_telegram(self, job: Dict[str, Optional[str]]) -> None:
+    def _send_job_to_telegram(self, job: DouJob) -> None:
         """Sends a job offer to a Telegram chat."""
         message: str = self._create_telegram_message(job)
         payload: Dict[str, Any] = {
@@ -358,5 +358,5 @@ if __name__ == "__main__":
 
     # Initialize the scraper with the configuration
     dou_scraper_0_1 = DouJobScraper(dou_config_0_1)
-    # dou_scraper_0_1.check_and_add_jobs()
-    print(dou_scraper_0_1.list_same_title_jobs_in_db("customer support agent with english and german (everhelp)"))
+    dou_scraper_0_1.check_and_add_jobs()
+    # print(dou_scraper_0_1.list_same_title_jobs_in_db("customer support agent with english and german (everhelp)"))
