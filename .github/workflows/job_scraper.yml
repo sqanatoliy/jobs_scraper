@@ -36,6 +36,6 @@ jobs:
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add job_data.db
+        git add ./data/job_data.db
         git commit -m "Update database with new job listings" || echo "No changes to commit"
         git push
