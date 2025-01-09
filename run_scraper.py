@@ -10,7 +10,7 @@ Usage:
 import os
 from dotenv import load_dotenv
 
-from config.scraper_config import DouScraperConfig
+from config.scraper_config import DouScraperConfig, GlobalLogicScraperConfig
 from src.gb_lg_job_scraper import GlobalLogicJobScraper
 from src.dou_job_scraper import DouJobScraper
 from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_EXP_CHAT_ID, DB_PATH
@@ -18,25 +18,25 @@ from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_E
 load_dotenv()
 
 
-# Check new jobs for experience level 0-1 years on GlobalLogic
-GlobalLogicJobScraper(
+# Configuration for checking new jobs for experience level 0-1 years on GlobalLogic
+gl_lg_python_0_1 = GlobalLogicScraperConfig(
     telegram_token=TELEGRAM_TOKEN,
     chat_id=CHAT_ID,
     db_path=DB_PATH,
     keywords="python",
     experience="0-1+years",
     locations="ukraine",
-).check_and_add_jobs()
+)
 
-# Check new jobs for experience level 1-3 years on GlobalLogic
-GlobalLogicJobScraper(
+# Configuration for checking new jobs for experience level 1-3 years on GlobalLogic
+gl_lg_python_1_3 = GlobalLogicScraperConfig(
     telegram_token=TELEGRAM_TOKEN,
     chat_id=CHAT_ID,
     db_path=DB_PATH,
     keywords="python",
     experience="1-3+years",
     locations="ukraine",
-).check_and_add_jobs()
+)
 
 # Configuration for checking new jobs for experience level 0-1 years on DOU
 dou_python_config_0_1 = DouScraperConfig(
@@ -74,6 +74,13 @@ dou_support_remote_config_0_1 = DouScraperConfig(
     experience="0-1",
     remote=True,
 )
+
+#####################################################################################################
+# Check new Python jobs for experience level 0-1 years on GlobalLogic
+GlobalLogicJobScraper(gl_lg_python_0_1).check_and_add_jobs()
+
+# Check new Python jobs for experience level 1-3 years on GlobalLogic
+GlobalLogicJobScraper(gl_lg_python_1_3).check_and_add_jobs()
 
 # Check new Python jobs for experience level 0-1 years on DOU
 DouJobScraper(dou_python_config_0_1).check_and_add_jobs()
