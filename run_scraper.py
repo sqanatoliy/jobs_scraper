@@ -1,16 +1,39 @@
 """
-This script checks for new job postings on different websites 
-and sends them to a specified Telegram chat.
+This script automates job scraping from GlobalLogic and DOU platforms, 
+categorizing postings by experience level and type, 
+and sending notifications via Telegram when new jobs matching specific configurations are found.
 
-Usage:
-1. Ensure that the .env file contains the TELEGRAM_TOKEN and CHAT_ID.
-2. Run the script to check for new job postings and send them to the specified Telegram chat.
+Modules Imported:
+- `config.scraper_config`: Configuration classes for GlobalLogic and DOU scrapers.
+- `src.gb_lg_job_scraper`: Scraping jobs from GlobalLogic.
+- `src.dou_job_scraper`: Scraping jobs from DOU.
+- `config.settings`: Environment variables for Telegram tokens, chat IDs, and database path.
+
+Configurations:
+1. **GlobalLogic**:
+   - Python jobs for 0-1 and 1-3 years of experience.
+   - Configurations include Telegram credentials, database path, keywords, and location.
+
+2. **DOU**:
+   - Python jobs (0-1 and 1-3 years of experience).
+   - Remote jobs for no-experience category.
+   - Remote Support jobs (0-1 years of experience).
+
+Workflow:
+- `GlobalLogicJobScraper`: Scrapes GlobalLogic jobs by experience level.
+- `DouJobScraper`: Scrapes DOU jobs by category and experience level.
+- Sends Telegram notifications for new jobs and prevents duplicates using a database.
+
+Features:
+- Automated scraping from multiple platforms.
+- Flexible configurations for job categories and levels.
+- Real-time notifications via Telegram.
 """
-
 from config.scraper_config import DouScraperConfig, GlobalLogicScraperConfig
+from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_EXP_CHAT_ID, DB_PATH
 from src.gb_lg_job_scraper import GlobalLogicJobScraper
 from src.dou_job_scraper import DouJobScraper
-from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_EXP_CHAT_ID, DB_PATH
+
 
 # GLOBAL LOGIC CONFIGURATIONS ==========================================================
 # Configuration for checking new jobs for experience level 0-1 years on GlobalLogic
