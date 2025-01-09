@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup, Tag, ResultSet
 from config.scraper_config import DouScraperConfig
 from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_EXP_CHAT_ID, DB_PATH
+from models.dou_job import DouJob
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -81,9 +82,9 @@ class DouJobScraper:
         """Cleans text for Telegram compatibility."""
         return text.replace("`", "'").replace("’", "'").strip()
 
-    def get_list_jobs(self) -> List[Dict[str, Optional[str]]]:
-        """Scrapes job offers and returns a list of dictionaries."""
-        job_offers: list = []
+    def get_list_jobs(self) -> List[DouJob]:
+        """Scrapes job offers and returns a list of DouJob objects."""
+        job_offers: List[DouJob] = []
         try:
             response: requests.Response = requests.get(
                 self.full_url,
@@ -95,7 +96,7 @@ class DouJobScraper:
             job_cards: ResultSet[Tag] = soup.select("ul > li.l-vacancy")
 
             for job_card in job_cards:
-                job: Dict[str, str | None] | None = self._extract_job_data(job_card)
+                job: DouJob | None = self._extract_job_data(job_card)
                 if job:
                     job_offers.append(job)
 
@@ -104,7 +105,7 @@ class DouJobScraper:
 
         return job_offers[::-1]
 
-    def _extract_job_data(self, job_card: Tag) -> Optional[Dict[str, Optional[str]]]:
+    def _extract_job_data(self, job_card: Tag) -> Optional[DouJob]:
         """Extracts job data from a single job card."""
         try:
             date: str = job_card.select_one("div.date").text.strip()
@@ -116,17 +117,17 @@ class DouJobScraper:
             category_job: str = self.config.category if self.config.category else "No category"
             experience_job: str = self.config.experience if self.config.experience else "No experience"
 
-            return {
-                "date": date,
-                "title": title_tag.text.strip() if title_tag else None,
-                "link": title_tag.get("href") if title_tag else None,
-                "company": company_tag.text.strip() if company_tag else None,
-                "salary": salary_tag.text.strip() if salary_tag else None,
-                "cities": cities_tag.text.strip() if cities_tag else None,
-                "sh_info": short_info_tag.text.strip() if short_info_tag else None,
-                "category": category_job,
-                "experience": experience_job,
-            }
+            return DouJob(
+                date=date,
+                title=title_tag.text.strip() if title_tag else None,
+                link=title_tag.get("href") if title_tag else None,
+                company=company_tag.text.strip() if company_tag else None,
+                salary=salary_tag.text.strip() if salary_tag else None,
+                cities=cities_tag.text.strip() if cities_tag else None,
+                sh_info=short_info_tag.text.strip() if short_info_tag else None,
+                category=category_job,
+                experience=experience_job,
+            )
         except AttributeError as err:
             logging.error("Error extracting job data: %s", err)
             return None
@@ -144,18 +145,18 @@ class DouJobScraper:
         except ValueError as err:
             raise ValueError(f"Impossible processing date: {date_str}. Error: {err}") from err
 
-    def _normalize_job_data(self, job: Dict[str, str | None]) -> Dict[str, str | None]:
+    def _normalize_job_data(self, job: DouJob) -> DouJob:
         """Normalizes job data before adding it to the database."""
-        job['title'] = job['title'].strip().lower() if job['title'] else None
-        job['company'] = job['company'].strip().lower() if job['company'] else None
-        job['category'] = job['category'].strip().lower() if job['category'] else None
-        job['date'] = self._normalize_date(job['date'].strip()) if job['date'] else None
+        job['title'] = job['title'].strip().lower() if job.title else None
+        job['company'] = job['company'].strip().lower() if job.company else None
+        job['category'] = job['category'].strip().lower() if job.category else None
+        job['date'] = self._normalize_date(job['date'].strip()) if job.date else None
         return job
 
-    def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
+    def check_and_add_jobs(self) -> List[DouJob]:
         """Checks for new jobs and adds them to the database."""
         new_jobs: list = []
-        job_offers: List[Dict[str, str | None]] = self.get_list_jobs()
+        job_offers: List[DouJob] = self.get_list_jobs()
 
         with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
@@ -166,18 +167,18 @@ class DouJobScraper:
 
                     cursor.execute("""
                         SELECT 1 FROM dou_jobs WHERE title = :title AND date = :date AND company = :company AND category = :category
-                    """, job)
+                    """, job.__dict__)
 
                     if not cursor.fetchone():
                         try:
                             cursor.execute("""
                                 INSERT INTO dou_jobs (date, title, link, company, salary, cities, sh_info, category, experience)
                                 VALUES (:date, :title, :link, :company, :salary, :cities, :sh_info, :category, :experience)
-                            """, job)
+                            """, job.__dict__)
                             new_jobs.append(job)
                             self._send_job_to_telegram(job)
                         except sqlite3.IntegrityError as e:
-                            logging.warning("Duplicate job entry detected: %s - %s - %s", job['title'], job['company'], e)
+                            logging.warning("Duplicate job entry detected: %s - %s - %s", job.title, job.company, e)
                         except sqlite3.Error as e:
                             logging.error("Error inserting job into database: %s - %s", job, e)
 
