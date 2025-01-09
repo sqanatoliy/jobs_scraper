@@ -25,12 +25,12 @@ jobs:
 
     - name: Run job scraper
       env:
-        DB_PATH: ./job_data.db
+        DB_PATH: ./data/job_data.db
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         NO_EXP_TELEGRAM_TOKEN: ${{ secrets.NO_EXP_TELEGRAM_TOKEN }}
         CHAT_ID: ${{ secrets.CHAT_ID }}
         NO_EXP_CHAT_ID: ${{ secrets.NO_EXP_CHAT_ID }}
-      run: python main.py
+      run: python run_scraper.py
 
     - name: Commit and push database changes
       run: |

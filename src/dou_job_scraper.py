@@ -1,118 +1,36 @@
-"""
-dou_jobs_scraper.py
-
-This module defines the DouJobScraper class, which is used to scrape job 
-listings from the Dou.ua website and send notifications to a Telegram chat. 
-The script can be run as a standalone program to check for new job listings 
-and send them to a specified Telegram chat.
-
-Classes:
-    DouJobScraper: A class to scrape job listings from the Dou.ua 
-    website and send notifications to a Telegram chat.
-
-Functions:
-    main(): The main function that initializes the DouJobScraper and checks for new job listings.
-
-Usage:
-    Set the following environment variables before running the script:
-        TELEGRAM_TOKEN: The Telegram bot token.
-        NO_EXP_TELEGRAM_TOKEN: The Telegram bot token for no experience jobs.
-        CHAT_ID: The Telegram chat ID.
-        NO_EXP_CHAT_ID: The Telegram chat ID for no experience jobs.
-        DB_PATH: The path to the SQLite database file.
-
-    Example:
-        $ export TELEGRAM_TOKEN="your_telegram_token"
-        $ export NO_EXP_TELEGRAM_TOKEN="your_no_exp_telegram_token"
-        $ export CHAT_ID="your_chat_id"
-        $ export NO_EXP_CHAT_ID="your_no_exp_chat_id"
-        $ export DB_PATH="path_to_your_db.sqlite"
-        $ python dou_jobs_scraper.py
-"""
+"""A module to scrape job listings from the DOU website and send notifications to a Telegram chat."""
 import sqlite3
 import time
-import os
 import logging
 from typing import Any, List, Dict, Optional
-from dotenv import load_dotenv
 
 import requests
 from bs4 import BeautifulSoup, Tag, ResultSet
+from config.scraper_config import DouScraperConfig
+from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_EXP_CHAT_ID, DB_PATH
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class DouJobScraper:
-    """
-    A class to scrape job listings from the Dou.ua website and 
-    send notifications to a Telegram chat.
-    Attributes:
-        BASE_URL (str): The base URL for job listings.
-        BASE_URL_NO_EXP (str): The base URL for job listings with no experience required.
-        TELEGRAM_API_URL (str): The URL for the Telegram API to send messages.
-    Methods:
-        __init__(
-        telegram_token, chat_id, db_path, 
-        category=None, experience=None, city=None, 
-        remote=False, relocation=False, no_exp=False
-        ):
-            Initializes the DouJobScraper with the given parameters.
-        _initialize_database():
-            Creates a database table if it doesn't exist.
-        _construct_full_url():
-            Constructs the full URL for job scraping based on filters.
-        _clean_text_for_telegram(text):
-            Cleans text for Telegram compatibility.
-        get_list_jobs():
-            Scrapes job offers and returns a list of dictionaries.
-        _extract_job_data(job_card):
-            Extracts job data from a single job card.
-        check_and_add_jobs():
-            Checks for new jobs and adds them to the database.
-        _create_telegram_message(job):
-            Creates a formatted message for Telegram.
-        _send_job_to_telegram(job):
-            Sends a job offer to a Telegram chat.
-        _get_retry_time(response):
-            Extracts retry time from the Telegram API response.
-        list_jobs_in_db():
-            Returns a list of all jobs in the database.
-    """
-
+    """A class to scrape job listings from the DOU website and send notifications to a Telegram chat."""
     BASE_URL = "https://jobs.dou.ua/vacancies/"
     BASE_URL_NO_EXP = "https://jobs.dou.ua/first-job/"
     TELEGRAM_API_URL = "https://api.telegram.org/bot{}/sendMessage"
 
     def __init__(
-        self,
-        telegram_token: str,
-        chat_id: str,
-        db_path: str,
-        category: Optional[str] = None,
-        experience: Optional[str] = None,
-        city: Optional[str] = None,
-        remote: bool = False,
-        relocation: bool = False,
-        no_exp: bool = False,
+            self,
+            config: DouScraperConfig
     ) -> None:
-        self.telegram_token: str = telegram_token
-        self.chat_id: str = chat_id
-        self.db_path: str = db_path
-        self.category: str | None = category
-        self.experience: str | None = experience
-        self.city: str | None = city
-        self.remote: bool = remote
-        self.relocation: bool = relocation
-        self.no_exp: bool = no_exp
-
-        self.base_url = self.BASE_URL_NO_EXP if no_exp else self.BASE_URL
+        self.config = config
+        self.base_url = self.BASE_URL_NO_EXP if self.config.no_exp else self.BASE_URL
         self.full_url: str = self._construct_full_url()
         self._initialize_database()
         self._create_indexes()
 
     def _initialize_database(self) -> None:
         """Creates a database table if it doesn't exist."""
-        with sqlite3.connect(self.db_path, check_same_thread=False) as conn:
+        with sqlite3.connect(self.config.db_path, check_same_thread=False) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS dou_jobs (
@@ -133,7 +51,7 @@ class DouJobScraper:
 
     def _create_indexes(self) -> None:
         """Creates indexes on relevant columns to optimize database queries."""
-        with sqlite3.connect(self.db_path, check_same_thread=False) as conn:
+        with sqlite3.connect(self.config.db_path, check_same_thread=False) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_title_date_company_category ON dou_jobs (title, date, company, category)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_category ON dou_jobs (category)")
@@ -141,24 +59,25 @@ class DouJobScraper:
 
     def _construct_full_url(self) -> str:
         """Constructs the full URL for job scraping based on filters."""
-        if sum(map(bool, [self.remote, self.relocation, self.city])) > 1:
+        if sum(map(bool, [self.config.remote, self.config.relocation, self.config.city])) > 1:
             raise ValueError("Only one of 'remote', 'relocation', or 'city' can be specified.")
 
         filters: list = []
-        if self.remote and not self.no_exp:
+        if self.config.remote and not self.config.no_exp:
             filters.append("remote")
-        if self.relocation and not self.no_exp:
+        if self.config.relocation and not self.config.no_exp:
             filters.append("relocation")
-        if self.city:
-            filters.append(f"city={self.city}")
-        if self.category and not self.no_exp:
-            filters.append(f"category={self.category}")
-        if self.experience and not self.no_exp:
-            filters.append(f"exp={self.experience}")
+        if self.config.city:
+            filters.append(f"city={self.config.city}")
+        if self.config.category and not self.config.no_exp:
+            filters.append(f"category={self.config.category}")
+        if self.config.experience and not self.config.no_exp:
+            filters.append(f"exp={self.config.experience}")
 
         return self.base_url + "?" + "&".join(filters)
 
-    def _clean_text_for_telegram(self, text: str) -> str:
+    @staticmethod
+    def _clean_text_for_telegram(text: str) -> str:
         """Cleans text for Telegram compatibility."""
         return text.replace("`", "'").replace("’", "'").strip()
 
@@ -194,8 +113,8 @@ class DouJobScraper:
             salary_tag: Tag | None = job_card.select_one("span.salary")
             cities_tag: Tag | None = job_card.select_one("span.cities")
             short_info_tag: Tag | None = job_card.select_one("div.sh-info")
-            category_job: str = self.category if self.category else "No category"
-            experience_job: str = self.experience if self.experience else "No experience"
+            category_job: str = self.config.category if self.config.category else "No category"
+            experience_job: str = self.config.experience if self.config.experience else "No experience"
 
             return {
                 "date": date,
@@ -212,7 +131,8 @@ class DouJobScraper:
             logging.error("Error extracting job data: %s", err)
             return None
 
-    def _normalize_date(self, date_str: str) -> str:
+    @staticmethod
+    def _normalize_date(date_str: str) -> str:
         """Normalizes the date format for consistency."""
         try:
             # Check if the date contains the year 2024 or 2025
@@ -237,10 +157,11 @@ class DouJobScraper:
         new_jobs: list = []
         job_offers: List[Dict[str, str | None]] = self.get_list_jobs()
 
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             for job in job_offers:
                 try:
+
                     job = self._normalize_job_data(job)
 
                     cursor.execute("""
@@ -269,7 +190,7 @@ class DouJobScraper:
 
     def _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:
         """Creates a formatted message for Telegram."""
-        experience: str = self.experience.replace("+", " ") if self.experience else "No experience"
+        experience: str = self.config.experience.replace("+", " ") if self.config.experience else "No experience"
         return (
             "DOU.UA PRESENT \n"
             f"*Date:* {job['date']}\n"
@@ -285,7 +206,7 @@ class DouJobScraper:
         """Sends a job offer to a Telegram chat."""
         message: str = self._create_telegram_message(job)
         payload: Dict[str, Any] = {
-            "chat_id": self.chat_id,
+            "chat_id": self.config.chat_id,
             "text": message,
             "parse_mode": "Markdown",
             "disable_web_page_preview": True,
@@ -294,14 +215,14 @@ class DouJobScraper:
         while True:
             try:
                 response: requests.Response = requests.post(
-                    self.TELEGRAM_API_URL.format(self.telegram_token),
+                    self.TELEGRAM_API_URL.format(self.config.telegram_token),
                     data=payload,
                     timeout=60,
                 )
                 if response.status_code == 429:
                     retry_time = self._get_retry_time(response)
                     logging.warning(
-                        "Telegram API rate limit exceeded. Waiting and retrying after %s seconds.", 
+                        "Telegram API rate limit exceeded. Waiting and retrying after %s seconds.",
                         retry_time
                     )
                     time.sleep(retry_time)
@@ -322,68 +243,68 @@ class DouJobScraper:
                 logging.error("Failed to send job to Telegram: %s", err)
                 time.sleep(10)
 
-    def _get_retry_time(self, response: requests.Response) -> int:
+    @staticmethod
+    def _get_retry_time(response: requests.Response) -> int:
         """Extracts retry time from the Telegram API response."""
         try:
             return int(response.json().get("parameters", {}).get("retry_after", 5))
         except (ValueError, KeyError):
             return 5
 
-
     def list_all_jobs_in_db(self) -> List[Dict[str, str]]:
         """Returns a list of all jobs in the database."""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute("SELECT * FROM dou_jobs")
             return cursor.fetchall()
 
     def list_no_category_jobs_in_db(self) -> List[Dict[str, str]]:
         """Returns a list of jobs in the database where category is 'No category'."""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             cursor.execute("SELECT * FROM dou_jobs WHERE category = ?", ("No category",))
             return cursor.fetchall()
 
     def list_same_title_jobs_in_db(self, title: str) -> List[Dict[str, str]]:
         """Returns a list of jobs in the database with the same title."""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
 
-            # Виконуємо запит для пошуку вакансій з однаковим title
+            # Execute a query to find jobs with the same title
             cursor.execute("SELECT * FROM dou_jobs WHERE title = ?", (title,))
-            
-            # Отримуємо всі результати
+
+            # Get all results
             rows = cursor.fetchall()
 
-            # Отримуємо назви колонок
+            # Get column names
             column_names = [desc[0] for desc in cursor.description]
-            
-            # Перетворюємо кожен рядок у словник
+
+            # Convert each row into a dictionary
             return [dict(zip(column_names, row)) for row in rows]
-        
+
     def list_jobs_by_category(self, category: str) -> List[Dict[str, str]]:
         """Returns a list of jobs in the database belonging to the specified category."""
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
 
-            # Виконуємо запит для пошуку вакансій у вказаній категорії
+            # Execute a query to find jobs by category
             cursor.execute("SELECT * FROM dou_jobs WHERE category = ?", (category,))
-            
-            # Отримуємо всі результати
+
+            # Get all results
             rows = cursor.fetchall()
 
-            # Отримуємо назви колонок
+            # Get column names
             column_names = [desc[0] for desc in cursor.description]
-            
-            # Перетворюємо кожен рядок у словник
+
+            # Convert each row into a dictionary
             return [dict(zip(column_names, row)) for row in rows]
 
-    def dublicate_jobs_in_db(self) -> List[Dict[str, str]]:
+    def duplicate_jobs_in_db(self) -> List[Dict[str, str]]:
         """
         Returns a list of duplicate jobs in the database based on title, 
         date, company, and category.
         """
-        with sqlite3.connect(self.db_path) as conn:
+        with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
 
             # SQL query to find duplicates
@@ -407,20 +328,34 @@ class DouJobScraper:
 
 
 if __name__ == "__main__":
-    load_dotenv(dotenv_path='.env')
 
-    TOKEN: str | None = os.getenv("TELEGRAM_TOKEN")
-    NO_EXP_TOKEN: str | None = os.getenv("NO_EXP_TELEGRAM_TOKEN")
-    CHAT_ID: str | None = os.getenv("CHAT_ID")
-    NO_EXP_CHAT_ID: str | None = os.getenv("NO_EXP_CHAT_ID")
-    DB_PATH: str | None = os.getenv("DB_PATH")
-
-    # Check new jobs for no experience level on DOU
-    dou_scraper = DouJobScraper(
-        telegram_token=NO_EXP_TOKEN,
-        chat_id=NO_EXP_CHAT_ID,
+    # Configuration for checking new jobs for experience level 0-1 years on DOU
+    dou_config_0_1 = DouScraperConfig(
         db_path=DB_PATH,
+        telegram_token=TELEGRAM_TOKEN,
+        chat_id=CHAT_ID,
+        category="Python",
+        experience="0-1",
+    )
+
+    # Configuration for checking new jobs for experience level 1-3 years on DOU
+    dou_config_1_3 = DouScraperConfig(
+        db_path=DB_PATH,
+        telegram_token=TELEGRAM_TOKEN,
+        chat_id=CHAT_ID,
+        category="Python",
+        experience="1-3",
+    )
+
+    # Configuration for checking new jobs for no experience level on DOU
+    dou_config_no_exp = DouScraperConfig(
+        db_path=DB_PATH,
+        telegram_token=NO_EXP_TELEGRAM_TOKEN,
+        chat_id=NO_EXP_CHAT_ID,
         no_exp=True,
     )
-    # dou_scraper.check_and_add_jobs()
 
+    # Initialize the scraper with the configuration
+    dou_scraper_0_1 = DouJobScraper(dou_config_0_1)
+    # dou_scraper_0_1.check_and_add_jobs()
+    print(dou_scraper_0_1.list_same_title_jobs_in_db("customer support agent with english and german (everhelp)"))
