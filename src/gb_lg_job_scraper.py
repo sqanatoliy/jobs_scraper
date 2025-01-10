@@ -1,3 +1,6 @@
+"""A module to scrape job listings from the GlobalLogic website
+and send notifications to a Telegram chat."""
+
 import sqlite3
 import time
 import re
@@ -9,21 +12,21 @@ from bs4 import BeautifulSoup, Tag, ResultSet
 
 from config.scraper_config import GlobalLogicScraperConfig
 from config.settings import TELEGRAM_TOKEN, DB_PATH, CHAT_ID
+from models.gl_lg_job import GlobalLogicJob
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 class GlobalLogicJobScraper:
-    """
-    A class used to scrape job offers
-    """
+    """A module to scrape job listings from the GlobalLogic website
+    and send notifications to a Telegram chat."""
+
     BASE_URL = "https://www.globallogic.com/career-search-page/?"
     TELEGRAM_API_URL = "https://api.telegram.org/bot{}/sendMessage"
 
-    def __init__(
-            self,
-            config: GlobalLogicScraperConfig
-    ) -> None:
+    def __init__(self, config: GlobalLogicScraperConfig) -> None:
         self.config = config
         self.base_url = self.BASE_URL
         self.full_url: str = self._construct_full_url()
@@ -34,7 +37,8 @@ class GlobalLogicJobScraper:
         """Creates a database table if it doesn't exist."""
         with sqlite3.connect(self.config.db_path, check_same_thread=False) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS gl_lg_jobs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT,
@@ -42,21 +46,24 @@ class GlobalLogicJobScraper:
                     requirements TEXT,
                     UNIQUE(title, link)
                 )
-            """)
+            """
+            )
             conn.commit()
 
     def _create_indexes(self) -> None:
         """Creates indexes for the database table."""
         with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
-            cursor.execute("CREATE INDEX IF NOT EXISTS title_index ON gl_lg_jobs (title)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS title_index ON gl_lg_jobs (title)"
+            )
             cursor.execute("CREATE INDEX IF NOT EXISTS link_index ON gl_lg_jobs (link)")
             conn.commit()
 
     def _construct_full_url(self) -> str:
         """
         Builds the full URL for job scraping based on initialized filters.
-        
+
         Returns:
             str: The constructed full URL with specified filters.
         """
@@ -83,20 +90,19 @@ class GlobalLogicJobScraper:
         """Cleans text for Telegram compatibility."""
         return text.replace("`", "'").replace("’", "'").strip()
 
-    def get_list_jobs(self) -> List[Dict[str, Optional[str]]]:
-        job_offers: list = []
+    def get_list_jobs(self) -> List[GlobalLogicJob]:
+        """Scrapes job offers and returns a list of GlobalLogicJob objects."""
+        job_offers: list[GlobalLogicJob] = []
         try:
             response: requests.Response = requests.get(
-                self.full_url,
-                headers={"User-Agent": "Mozilla/5.0"},
-                timeout=30
+                self.full_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=30
             )
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
             job_cards: ResultSet[Tag] = soup.select("div.career-pagelink")
 
             for job_card in job_cards:
-                job: Dict[str, Optional[str]] = self._extract_job_data(job_card)
+                job: GlobalLogicJob = self._extract_job_data(job_card)
                 if job:
                     job_offers.append(job)
 
@@ -105,87 +111,89 @@ class GlobalLogicJobScraper:
 
         return job_offers[::-1]
 
-    def _extract_job_data(self, job_card: Tag) -> Optional[Dict[str, Optional[str]]]:
+    def _extract_job_data(self, job_card: Tag) -> Optional[GlobalLogicJob]:
         """Extracts job data from a single job card."""
         try:
             title_element: Tag | None = job_card.select_one("p > a")
-            if title_element:
-                title: str = title_element.text.strip()
-                link: str | List[str] | None = title_element.get("href")
+            title: str = title_element.text.strip()
+            link: str | List[str] | None = title_element.get("href")
 
-                requirements_element: Tag | None = job_card.select_one("p.id-num")
-                requirements: str | None = (
-                    re.sub(r"\s+", " ", requirements_element.text.strip())
-                    if requirements_element
-                    else None
-                )
-                return {"title": title, "link": link, "requirements": requirements}
+            requirements_element: Tag | None = job_card.select_one("p.id-num")
+            requirements: str | None = (
+                re.sub(r"\s+", " ", requirements_element.text.strip())
+                if requirements_element
+                else None
+            )
+            return GlobalLogicJob(title=title, link=link, requirements=requirements)
         except AttributeError as err:
             logging.error("Error extracting job data: %s", err)
             return None
 
-    @staticmethod
-    def _normalize_job_data(job: Dict[str, Optional[str]]) -> Dict[str, Optional[str]]:
+    def _normalize_job_data(self, job: GlobalLogicJob) -> GlobalLogicJob:
         """Normalizes job data before inserting into the database."""
-        job['title'] = job['title'].strip().lower() if job['title'] else None
-        job['link'] = job['link'].strip() if job['link'] else None
+        job.title = job.title.strip().lower() if job.title else None
+        job.link = job.link.strip() if job.link else None
         return job
 
-    def check_and_add_jobs(self) -> List[Dict[str, Optional[str]]]:
-        """
-        Retrieves job offers, inserts new jobs into the database, and sends them to Telegram.
-        This method performs the following steps:
-        1. Retrieves a list of job offers.
-        2. Connects to the SQLite database specified by `self.db_path`.
-        3. Iterates over the job offers and attempts to insert each job into the `gl_lg_jobs` table.
-        4. If a job is successfully inserted, it is added to the `new_jobs` list and sent to Telegram.
-        5. If a job already exists in the database (based on a unique title constraint), it is skipped.
-        6. Commits the transaction to the database.
-        7. Returns the list of new jobs that were added to the database.
-        Returns:
-            List[Dict[str, Optional[str]]]: A list of dictionaries representing the new jobs that were added to the database.
-        """
-        job_offers: List[Dict[str, str | None]] = self.get_list_jobs()
+    def check_and_add_jobs(self) -> List[GlobalLogicJob]:
+        """Checks for new jobs and adds them to the database."""
         new_jobs: list = []
+        job_offers: List[GlobalLogicJob] = self.get_list_jobs()
 
         with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
-
             for job in job_offers:
                 try:
-                    job: Dict[str, str | None] = self._normalize_job_data(job)
-                    cursor.execute("""
+                    job: GlobalLogicJob = self._normalize_job_data(job)
+                    cursor.execute(
+                        """
                         SELECT 1 FROM gl_lg_jobs WHERE title = :title AND link = :link
-                    """, job)
+                    """,
+                        job.__dict__,
+                    )
                     if not cursor.fetchone():
                         try:
-                            cursor.execute("""
+                            cursor.execute(
+                                """
                                 INSERT INTO gl_lg_jobs (title, link, requirements)
                                 VALUES (:title, :link, :requirements)
-                            """, job)
+                            """,
+                                job.__dict__,
+                            )
                             new_jobs.append(job)
                             self._send_job_to_telegram(job)
                         except sqlite3.IntegrityError as err:
-                            logging.warning("Duplicate job entry detected: %s - %s - %s", job['title'], job['link'], err)
+                            logging.warning(
+                                "Duplicate job entry detected: %s - %s - %s",
+                                job["title"],
+                                job["link"],
+                                err,
+                            )
                         except sqlite3.Error as err:
-                            logging.error("Error inserting job into the database: %s - %s", job, err)
+                            logging.error(
+                                "Error inserting job into the database: %s - %s",
+                                job,
+                                err,
+                            )
                     conn.commit()
                 except Exception as err:
-                    logging.error("Error occurred while checking and adding jobs: %s", err)
+                    logging.error(
+                        "Error occurred while checking and adding jobs: %s", err
+                    )
                     conn.rollback()
         if not new_jobs:
             logging.info("No new jobs found at GlobalLogic.")
         return new_jobs
 
-    def _create_telegram_message(self, job: Dict[str, Optional[str]]) -> str:
+    def _create_telegram_message(self, job: GlobalLogicJob) -> str:
         """Creates a formatted message for Telegram."""
         return (
             "GLOBAL LOGIC PRESENT \n"
-            f"[{job['title']}]({job['link']})\n"
-            f"*Requirements:* {self._clean_text_for_telegram(job['requirements']) or 'N/A'}\n"
+            f"[{job.title}]({job.link})\n"
+            f"*Requirements:* {self._clean_text_for_telegram(job.requirements) or 'N/A'}\n"
         )
 
-    def _send_job_to_telegram(self, job: Dict[str, Optional[str]]) -> None:
+    def _send_job_to_telegram(self, job: GlobalLogicJob) -> None:
         """Sends a job offer to a Telegram chat."""
         message: str = self._create_telegram_message(job)
         payload: Dict[str, Any] = {
@@ -205,7 +213,8 @@ class GlobalLogicJobScraper:
                 if response.status_code == 429:
                     retry_time = self._get_retry_time(response)
                     logging.warning(
-                        "Telegram API rate limit exceeded. Waiting and retrying after %s seconds.", retry_time
+                        "Telegram API rate limit exceeded. Waiting and retrying after %s seconds.",
+                        retry_time,
                     )
                     time.sleep(retry_time)
                     continue

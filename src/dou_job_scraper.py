@@ -1,4 +1,5 @@
-"""A module to scrape job listings from the DOU website and send notifications to a Telegram chat."""
+"""A module to scrape job listings from the DOU website 
+and send notifications to a Telegram chat."""
 import sqlite3
 import time
 import logging
@@ -14,7 +15,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 
 class DouJobScraper:
-    """A class to scrape job listings from the DOU website and send notifications to a Telegram chat."""
+    """A class to scrape job listings from the DOU website 
+    and send notifications to a Telegram chat."""
     BASE_URL = "https://jobs.dou.ua/vacancies/"
     BASE_URL_NO_EXP = "https://jobs.dou.ua/first-job/"
     TELEGRAM_API_URL = "https://api.telegram.org/bot{}/sendMessage"
@@ -162,13 +164,11 @@ class DouJobScraper:
             cursor: sqlite3.Cursor = conn.cursor()
             for job in job_offers:
                 try:
-
-                    job = self._normalize_job_data(job)
+                    job: DouJob = self._normalize_job_data(job)
 
                     cursor.execute("""
                         SELECT 1 FROM dou_jobs WHERE title = :title AND date = :date AND company = :company AND category = :category
                     """, job.__dict__)
-
                     if not cursor.fetchone():
                         try:
                             cursor.execute("""
@@ -181,7 +181,6 @@ class DouJobScraper:
                             logging.warning("Duplicate job entry detected: %s - %s - %s", job.title, job.company, e)
                         except sqlite3.Error as e:
                             logging.error("Error inserting job into database: %s - %s", job, e)
-
                     conn.commit()
                 except Exception as e:  # Catch all exceptions
                     logging.error("An unexpected error occurred: %s", e)
