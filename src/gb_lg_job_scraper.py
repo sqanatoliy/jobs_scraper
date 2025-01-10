@@ -165,8 +165,8 @@ class GlobalLogicJobScraper:
                         except sqlite3.IntegrityError as err:
                             logging.warning(
                                 "Duplicate job entry detected: %s - %s - %s",
-                                job["title"],
-                                job["link"],
+                                job.title,
+                                job.link,
                                 err,
                             )
                         except sqlite3.Error as err:
@@ -182,7 +182,7 @@ class GlobalLogicJobScraper:
                     )
                     conn.rollback()
         if not new_jobs:
-            logging.info("No new jobs found at GlobalLogic.")
+            logging.info(f"No new jobs found at Gb Lg {self.config.keywords} {self.config.experience}.")
         return new_jobs
 
     def _create_telegram_message(self, job: GlobalLogicJob) -> str:
@@ -219,7 +219,7 @@ class GlobalLogicJobScraper:
                     time.sleep(retry_time)
                     continue
                 response.raise_for_status()
-                logging.info("Job sent to Telegram successfully.")
+                logging.info(f"Job sent to Telegram successfully at Gb Lg {self.config.keywords} {self.config.experience}.")
                 break
             except requests.exceptions.HTTPError as err:
                 logging.error("HTTP error occurred: %s", err)

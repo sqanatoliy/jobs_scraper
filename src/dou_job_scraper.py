@@ -186,7 +186,7 @@ class DouJobScraper:
                     logging.error("An unexpected error occurred: %s", e)
                     conn.rollback()
         if not new_jobs:
-            logging.info(f"No new jobs found at DOU {job.category} category.")
+            logging.info(f"No new jobs found at Dou {job.category} category with experience {self.config.experience}.")
         return new_jobs
 
     def _create_telegram_message(self, job: DouJob) -> str:
@@ -229,7 +229,7 @@ class DouJobScraper:
                     time.sleep(retry_time)
                     continue
                 response.raise_for_status()
-                logging.info("Job sent to Telegram successfully.")
+                logging.info(f"Job sent to Telegram successfully at Dou {job.category} category with experience {self.config.experience}.")
                 break
             except requests.exceptions.HTTPError as err:
                 logging.error("HTTP error occurred: %s", err)
