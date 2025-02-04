@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 from config.base_config import BaseConfig
 
@@ -28,4 +28,13 @@ class GlobalLogicScraperConfig(BaseConfig):
     remote: bool = False
     hybrid: bool = False
     on_site: bool = False
+
+
+@dataclass
+class DjinniScraperConfig(BaseConfig):
+    db_path: str
+    telegram_token: str
+    chat_id: str
+    djinni_url: str
+    djinni_category: Optional[str] = None
 

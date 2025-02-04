@@ -29,8 +29,10 @@ Features:
 - Flexible configurations for job categories and levels.
 - Real-time notifications via Telegram.
 """
-from config.scraper_config import DouScraperConfig, GlobalLogicScraperConfig
-from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_EXP_CHAT_ID, DB_PATH
+from config.scraper_config import DouScraperConfig, GlobalLogicScraperConfig, DjinniScraperConfig
+from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_EXP_CHAT_ID, DB_PATH, DJINNI_PYTHON_URL, DJINNI_NO_EXP_URL, \
+    DJINNI_OTHER_URL, DJINNI_SUPPORT_URL
+from src.djinni_job_scraper import DjinniJobScraper
 from src.gb_lg_job_scraper import GlobalLogicJobScraper
 from src.dou_job_scraper import DouJobScraper
 
@@ -93,7 +95,38 @@ dou_support_remote_config_0_1 = DouScraperConfig(
     remote=True,
 )
 
+# Configuration for checking new Python jobs for experience level 0-2 years on Djinni
+djinni_python_config_0_2 = DjinniScraperConfig(
+    db_path=DB_PATH,
+    telegram_token=TELEGRAM_TOKEN,
+    chat_id=CHAT_ID,
+    djinni_url=DJINNI_PYTHON_URL,
+    djinni_category="Python 0 - 2 years",
+)
 
+djinni_no_exp_config = DjinniScraperConfig(
+    db_path=DB_PATH,
+    telegram_token=NO_EXP_TELEGRAM_TOKEN,
+    chat_id=NO_EXP_CHAT_ID,
+    djinni_url=DJINNI_NO_EXP_URL,
+    djinni_category="No experience",
+)
+
+djinni_other_config = DjinniScraperConfig(
+    db_path=DB_PATH,
+    telegram_token=NO_EXP_TELEGRAM_TOKEN,
+    chat_id=NO_EXP_CHAT_ID,
+    djinni_url=DJINNI_OTHER_URL,
+    djinni_category="Other",
+)
+
+djinni_support_config = DjinniScraperConfig(
+    db_path=DB_PATH,
+    telegram_token=NO_EXP_TELEGRAM_TOKEN,
+    chat_id=NO_EXP_CHAT_ID,
+    djinni_url=DJINNI_SUPPORT_URL,
+    djinni_category="Support",
+)
 # END DOU CONFIGURATIONS ============================================================
 
 def main():
@@ -118,6 +151,18 @@ def main():
 
     # Check new Support remote jobs for experience level 0-1 years on DOU
     DouJobScraper(dou_support_remote_config_0_1).check_and_add_jobs()
+
+    # Check new Python jobs for experience level 0-2 years on Djinni
+    DjinniJobScraper(djinni_python_config_0_2).check_and_add_jobs()
+
+    # Check new jobs for no experience level on Djinni
+    DjinniJobScraper(djinni_no_exp_config).check_and_add_jobs()
+
+    # Check new Other jobs for 0 - 1 years level on Djinni
+    DjinniJobScraper(djinni_other_config).check_and_add_jobs()
+
+    # Check new Support jobs for 0 - 1 years level on Djinni
+    DjinniJobScraper(djinni_support_config).check_and_add_jobs()
     # END DOU JOB SCRAPING ===============================================================
 
 
