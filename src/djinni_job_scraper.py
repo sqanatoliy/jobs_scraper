@@ -198,7 +198,7 @@ class DjinniJobScraper:
 if __name__ == "__main__":
     python_config = DjinniScraperConfig(
         db_path=DB_PATH,
-        telegram_token="6289984743:AAEMG9O25QWBMHPw6W0gc94vbvcIpu2zSWo",
+        telegram_token=TELEGRAM_TOKEN,
         chat_id=CHAT_ID,
         djinni_url=DJINNI_PYTHON_URL,
         djinni_category="Python",
