@@ -138,7 +138,7 @@ class DjinniJobScraper:
         djinni_category: str = self.djinni_category or "N/A"
         return (
             ""
-            f"*djinni.co in category:* {djinni_category} \n"
+            f"*djinni.co in section:* {djinni_category} \n"
             f"*Date:* {job.date}\n"
             f"[{job.title}]({job.link})\n"
             f"*Description:* {job.description}\n"
