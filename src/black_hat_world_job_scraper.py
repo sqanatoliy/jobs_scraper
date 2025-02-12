@@ -9,6 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from config.scraper_config import BlackHatWorldScraperConfig
+from config.settings import TELEGRAM_TOKEN, CHAT_ID, DB_PATH
 from models.blackhatworld_job import BlackHatWorldJob
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -178,5 +179,11 @@ class BlackHatWorldJobScraper:
 
 
 if __name__ == "__main__":
-    black_hat_world_scraper = BlackHatWorldJobScraper()
-    print(black_hat_world_scraper.get_list_jobs())
+    # Configuration for checking new scraping freelance offers on BlackHatWorld
+    black_hat_world_config = BlackHatWorldScraperConfig(
+        db_path=DB_PATH,
+        telegram_token=TELEGRAM_TOKEN,
+        chat_id=CHAT_ID,
+    )
+    black_hat_world_scraper = BlackHatWorldJobScraper(black_hat_world_config)
+    print(black_hat_world_scraper.check_and_add_jobs())
