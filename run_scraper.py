@@ -29,9 +29,10 @@ Features:
 - Flexible configurations for job categories and levels.
 - Real-time notifications via Telegram.
 """
-from config.scraper_config import DouScraperConfig, GlobalLogicScraperConfig, DjinniScraperConfig
+from config.scraper_config import DouScraperConfig, GlobalLogicScraperConfig, DjinniScraperConfig, BlackHatWorldScraperConfig
 from config.settings import TELEGRAM_TOKEN, CHAT_ID, NO_EXP_TELEGRAM_TOKEN, NO_EXP_CHAT_ID, DB_PATH, DJINNI_PYTHON_URL, DJINNI_NO_EXP_URL, \
     DJINNI_OTHER_URL, DJINNI_SUPPORT_URL
+from src.black_hat_world_job_scraper import BlackHatWorldJobScraper
 from src.djinni_job_scraper import DjinniJobScraper
 from src.gb_lg_job_scraper import GlobalLogicJobScraper
 from src.dou_job_scraper import DouJobScraper
@@ -127,6 +128,15 @@ djinni_support_config = DjinniScraperConfig(
     djinni_url=DJINNI_SUPPORT_URL,
     djinni_category="Support",
 )
+
+# Configuration for checking new scraping freelance offers on BlackHatWorld
+black_hat_world_config = BlackHatWorldScraperConfig(
+    db_path=DB_PATH,
+    telegram_token=TELEGRAM_TOKEN,
+    chat_id=CHAT_ID,
+)
+
+
 # END DOU CONFIGURATIONS ============================================================
 
 def main():
@@ -164,6 +174,11 @@ def main():
     # Check new Support jobs for 0 - 1 years level on Djinni
     DjinniJobScraper(djinni_support_config).check_and_add_jobs()
     # END DOU JOB SCRAPING ===============================================================
+
+    # BLACK HAT WORLD JOB SCRAPING =======================================================
+    # Check new freelance offers on BlackHatWorld
+    BlackHatWorldJobScraper(black_hat_world_config).check_and_add_jobs()
+    # END BLACK HAT WORLD JOB SCRAPING ===================================================
 
 
 if __name__ == "__main__":

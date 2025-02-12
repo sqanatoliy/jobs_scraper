@@ -38,3 +38,9 @@ class DjinniScraperConfig(BaseConfig):
     djinni_url: str
     djinni_category: Optional[str] = None
 
+
+@dataclass
+class BlackHatWorldScraperConfig(BaseConfig):
+    db_path: str
+    telegram_token: str
+    chat_id: str
