@@ -91,9 +91,9 @@ class BlackHatWorldJobScraper:
 
     def check_and_add_jobs(self) -> List[BlackHatWorldJob]:
         """Checks for new jobs and adds them to the database."""
-        new_jobs: list = []
+        new_jobs: List[BlackHatWorldJob] = []
         job_offers: List[BlackHatWorldJob] = self.get_list_jobs()
-
+        logging.info(f"Scraped jobs: {job_offers}")
         with sqlite3.connect(self.config.db_path) as conn:
             cursor: sqlite3.Cursor = conn.cursor()
             for job in job_offers:
@@ -102,20 +102,23 @@ class BlackHatWorldJobScraper:
 
                     cursor.execute("""
                         SELECT 1 FROM black_hat_world_jobs WHERE title = :title AND link = :link
-                    """, job.__dict__)
+                    """, (job.title, job.link))
                     if not cursor.fetchone():
                         try:
+                            logging.info(f"Trying to insert job: {job.title} - {job.link}")
                             cursor.execute("""
                                 INSERT INTO black_hat_world_jobs (title, link)
                                 VALUES (:title, :link)
-                            """, job.__dict__)
+                            """, (job.title, job.link))
                             new_jobs.append(job)
+                            logging.info(f"New job list: {new_jobs}")
                             self._send_job_to_telegram(job)
                         except sqlite3.IntegrityError as e:
                             logging.warning("Duplicate job entry detected: %s - %s - %s", job.title, job.link, e)
                         except sqlite3.Error as e:
                             logging.error("Error inserting job into database: %s - %s", job, e)
                     conn.commit()
+                    logging.info(f"Successfully inserted: {job.title}")
                 except Exception as e:  # Catch all exceptions
                     logging.error("An unexpected error occurred: %s", e)
                     conn.rollback()
@@ -179,6 +182,13 @@ class BlackHatWorldJobScraper:
         except (ValueError, KeyError):
             return 5
 
+    def list_all_jobs_in_db(self) -> List[Dict[str, str]]:
+        """Returns a list of all jobs in the database."""
+        with sqlite3.connect(self.config.db_path) as conn:
+            cursor: sqlite3.Cursor = conn.cursor()
+            cursor.execute("SELECT * FROM black_hat_world_jobs")
+            return cursor.fetchall()
+
 
 if __name__ == "__main__":
     # Configuration for checking new scraping freelance offers on BlackHatWorld
@@ -189,3 +199,4 @@ if __name__ == "__main__":
     )
     black_hat_world_scraper = BlackHatWorldJobScraper(black_hat_world_config)
     print(black_hat_world_scraper.check_and_add_jobs())
+    # print(black_hat_world_scraper.list_all_jobs_in_db())
