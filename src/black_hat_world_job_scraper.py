@@ -23,7 +23,6 @@ class BlackHatWorldJobScraper:
     BASE_URL = "https://www.blackhatworld.com"
     TELEGRAM_API_URL = "https://api.telegram.org/bot{}/sendMessage"
     keywords = ["scraping", "parsing", "scraper", "parser"]
-    CF_CLEARANCE = "cf_clearance=bGyxlUJFM48bGKziFCykOqNpTKk.1cS2FnIofOSZD8I-1739426624-1.2.1.1-eAtZ6RF.18dQxt8Zivzz5kCoBjAQNsDvh5Ti7w1hvBGptR0NZeRXPK3fooQ8l9FuGc58WaYtoIhdn.G.vBlNVs1MIPJOLeOat4edLn1dgwveU6B2Y0j0jsNGYNoQNWloHh.lN9PD3.yFaDRw_kmmnSs_COQe_t4P904CkHQA_jkJiuHyGV606XVQ6q3sA02zv_IvPb5yxMt25Ag_6B1cVzKKxEaUdT0Q.XIXbzIaXcHRK9a_3gFgrls0g82l8ZGmQRhku1LqgbYc4j1r8AU0C7hmBBQlbv.n4vQx4mgZ112S1_oWbUS6Umb6qc369i.CGjOd0hqcF63tNXQHypsryQ"
 
     def __init__(
             self,
@@ -61,7 +60,9 @@ class BlackHatWorldJobScraper:
         return text.replace("`", "'").replace("’", "'").strip()
 
     def get_list_jobs(self) -> List[BlackHatWorldJob]:
-        """Scrapes job offers and returns a list of BlackHatWorldJob objects."""
+        """Scrapes job offers and returns a list of BlackHatWorldJob objects.
+        TODO: Refactor this method to use Proxy for scraping.
+        """
         job_offers: List[BlackHatWorldJob] = []
         url = self.BASE_URL + "/forums/hire-a-freelancer.76/?order=post_date&direction=desc"
         # headers = {
@@ -98,7 +99,6 @@ class BlackHatWorldJobScraper:
                 )
                 context = browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    extra_http_headers={"cookie": self.CF_CLEARANCE},
                     viewport={"width": 1920, "height": 1080},
                     java_script_enabled=True,
                 )
@@ -108,29 +108,17 @@ class BlackHatWorldJobScraper:
                 page.goto(url)
                 logging.info(f"Page URL: {page.url} opened successfully.")
                 page.wait_for_timeout(5000)
-                # Перевірка, чи Cloudflare показує Challenge Page
                 if "Just a moment..." in page.content():
                     logging.warning("⚠️ Cloudflare block detected! Waiting and retrying...")
-                    page.wait_for_timeout(10000)  # Ще 10 секунд очікування
-
-                # Додаткове очікування challenge
-                try:
-                    page.wait_for_selector("#challenge-form", timeout=10000)
-                    logging.info("✅ Cloudflare challenge detected, waiting...")
                     page.wait_for_timeout(10000)
-                except:
-                    logging.info("⚠️ No Cloudflare challenge detected, continuing...")
-
                 try:
                     page.wait_for_selector("div.structItem.structItem--thread.js-inlineModContainer", timeout=30000)
                     logging.info("Job listings detected!")
                 except PlaywrightTimeoutError as err:
                     logging.warning(f"No job listings found (possible Cloudflare block). error: {err}")
-
                 logging.info(f"Page content: {page.content()[:500]}")
                 soup = BeautifulSoup(page.content(), "html.parser")
                 browser.close()
-
             ad_cards = soup.select("div.structItem.structItem--thread.js-inlineModContainer")
             logging.info(f"There are a : {len(ad_cards)} job offers on page.")
             for card in ad_cards:
