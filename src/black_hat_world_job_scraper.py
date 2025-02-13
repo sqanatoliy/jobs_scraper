@@ -103,7 +103,7 @@ class BlackHatWorldJobScraper:
                 page = context.new_page()
                 stealth_sync(page)
                 page.evaluate("navigator.webdriver = undefined")
-                page.goto(url, wait_until="networkidle")
+                page.goto(url, wait_until="domcontentloaded")
                 logging.info(f"Page URL: {page.url} opened successfully.")
                 page.wait_for_timeout(5000)
                 try:
