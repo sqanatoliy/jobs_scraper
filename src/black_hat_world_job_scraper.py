@@ -99,16 +99,15 @@ class BlackHatWorldJobScraper:
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     viewport={"width": 1920, "height": 1080},
                     java_script_enabled=True,
-                    proxy={"server": "http://54.38.181.125:3128"},
                 )
                 page = context.new_page()
                 stealth_sync(page)
                 page.evaluate("navigator.webdriver = undefined")
-                page.goto(url, wait_until="domcontentloaded")
+                page.goto(url)
                 logging.info(f"Page URL: {page.url} opened successfully.")
                 page.wait_for_timeout(5000)
                 try:
-                    page.wait_for_selector("div.structItem.structItem--thread.js-inlineModContainer", timeout=10000)
+                    page.wait_for_selector("div.structItem.structItem--thread.js-inlineModContainer", timeout=30000)
                     logging.info("Job listings detected!")
                 except PlaywrightTimeoutError as err:
                     logging.warning(f"No job listings found (possible Cloudflare block). error: {err}")
