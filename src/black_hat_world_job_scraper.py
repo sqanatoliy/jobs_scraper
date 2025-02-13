@@ -20,6 +20,7 @@ class BlackHatWorldJobScraper:
     and send notifications to a Telegram chat."""
     BASE_URL = "https://www.blackhatworld.com"
     TELEGRAM_API_URL = "https://api.telegram.org/bot{}/sendMessage"
+    keywords = ["scraping", "parsing", "scraper", "parser"]
 
     def __init__(
             self,
@@ -71,10 +72,11 @@ class BlackHatWorldJobScraper:
                     link = self.BASE_URL + title_element.get("href")
                     title = title_element.text.strip()
                     title = re.sub(r"\s+", " ", title)
-                    if "scraping" in title.lower() or "parsing" in title.lower():
-                        job_offers.append(
-                            BlackHatWorldJob(title=title, link=link)
-                        )
+                    for word in self.keywords:
+                        if word in title.lower():
+                            job_offers.append(
+                                BlackHatWorldJob(title=title, link=link)
+                            )
         except scraper.RequestsException as err:
             logging.error(f"An error occurred: {err}")
         except AttributeError as error:
