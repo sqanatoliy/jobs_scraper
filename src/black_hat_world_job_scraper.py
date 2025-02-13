@@ -66,12 +66,14 @@ class BlackHatWorldJobScraper:
             response = scraper.get(url)
             soup = BeautifulSoup(response.text, "html.parser")
             ad_cards = soup.select("div.structItem.structItem--thread.js-inlineModContainer")
+            logging.info(f"There are a : {len(ad_cards)} job offers on page.")
             for card in ad_cards:
                 title_element = card.select_one("div.structItem-title a")
                 if title_element:
                     link = self.BASE_URL + title_element.get("href")
                     title = title_element.text.strip()
                     title = re.sub(r"\s+", " ", title)
+                    logging.info(f"There are a : {title} job offer")
                     for word in self.keywords:
                         if word in title.lower():
                             job_offers.append(
