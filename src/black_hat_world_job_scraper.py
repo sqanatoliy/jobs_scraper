@@ -23,6 +23,7 @@ class BlackHatWorldJobScraper:
     BASE_URL = "https://www.blackhatworld.com"
     TELEGRAM_API_URL = "https://api.telegram.org/bot{}/sendMessage"
     keywords = ["scraping", "parsing", "scraper", "parser"]
+    CF_CLEARANCE = "cf_clearance=bGyxlUJFM48bGKziFCykOqNpTKk.1cS2FnIofOSZD8I-1739426624-1.2.1.1-eAtZ6RF.18dQxt8Zivzz5kCoBjAQNsDvh5Ti7w1hvBGptR0NZeRXPK3fooQ8l9FuGc58WaYtoIhdn.G.vBlNVs1MIPJOLeOat4edLn1dgwveU6B2Y0j0jsNGYNoQNWloHh.lN9PD3.yFaDRw_kmmnSs_COQe_t4P904CkHQA_jkJiuHyGV606XVQ6q3sA02zv_IvPb5yxMt25Ag_6B1cVzKKxEaUdT0Q.XIXbzIaXcHRK9a_3gFgrls0g82l8ZGmQRhku1LqgbYc4j1r8AU0C7hmBBQlbv.n4vQx4mgZ112S1_oWbUS6Umb6qc369i.CGjOd0hqcF63tNXQHypsryQ"
 
     def __init__(
             self,
@@ -97,6 +98,7 @@ class BlackHatWorldJobScraper:
                 )
                 context = browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    extra_http_headers={"cookie": self.CF_CLEARANCE},
                     viewport={"width": 1920, "height": 1080},
                     java_script_enabled=True,
                 )
