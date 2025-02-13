@@ -106,6 +106,19 @@ class BlackHatWorldJobScraper:
                 page.goto(url)
                 logging.info(f"Page URL: {page.url} opened successfully.")
                 page.wait_for_timeout(5000)
+                # Перевірка, чи Cloudflare показує Challenge Page
+                if "Just a moment..." in page.content():
+                    logging.warning("⚠️ Cloudflare block detected! Waiting and retrying...")
+                    page.wait_for_timeout(10000)  # Ще 10 секунд очікування
+
+                # Додаткове очікування challenge
+                try:
+                    page.wait_for_selector("#challenge-form", timeout=10000)
+                    logging.info("✅ Cloudflare challenge detected, waiting...")
+                    page.wait_for_timeout(10000)
+                except:
+                    logging.info("⚠️ No Cloudflare challenge detected, continuing...")
+
                 try:
                     page.wait_for_selector("div.structItem.structItem--thread.js-inlineModContainer", timeout=30000)
                     logging.info("Job listings detected!")
