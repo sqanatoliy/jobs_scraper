@@ -64,6 +64,7 @@ class BlackHatWorldJobScraper:
         scraper = cloudscraper.create_scraper()
         try:
             response = scraper.get(url)
+            logging.info(f"Response: {response.text}")
             soup = BeautifulSoup(response.text, "html.parser")
             ad_cards = soup.select("div.structItem.structItem--thread.js-inlineModContainer")
             logging.info(f"There are a : {len(ad_cards)} job offers on page.")
