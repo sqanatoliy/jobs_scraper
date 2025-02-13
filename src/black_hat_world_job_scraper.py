@@ -61,9 +61,12 @@ class BlackHatWorldJobScraper:
         """Scrapes job offers and returns a list of BlackHatWorldJob objects."""
         job_offers: List[BlackHatWorldJob] = []
         url = self.BASE_URL + "/forums/hire-a-freelancer.76/?order=post_date&direction=desc"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
         scraper = cloudscraper.create_scraper()
         try:
-            response = scraper.get(url)
+            response = scraper.get(url, headers=headers)
             logging.info(f"Response: {response.text}")
             soup = BeautifulSoup(response.text, "html.parser")
             ad_cards = soup.select("div.structItem.structItem--thread.js-inlineModContainer")
