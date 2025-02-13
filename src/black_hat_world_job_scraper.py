@@ -7,7 +7,7 @@ from typing import Any, List, Dict
 import cloudscraper
 import requests
 from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright, Error
+from playwright.sync_api import sync_playwright, Error, TimeoutError as PlaywrightTimeoutError
 from playwright_stealth import stealth_sync
 
 from config.scraper_config import BlackHatWorldScraperConfig
@@ -102,10 +102,17 @@ class BlackHatWorldJobScraper:
                 )
                 page = context.new_page()
                 stealth_sync(page)
-                page.goto(url, wait_until="load")
+                page.evaluate("navigator.webdriver = undefined")
+                page.goto(url, wait_until="networkidle")
                 logging.info(f"Page URL: {page.url} opened successfully.")
                 page.wait_for_timeout(5000)
-                logging.info(f"Page content: {page.content()}")
+                try:
+                    page.wait_for_selector("div.structItem.structItem--thread.js-inlineModContainer", timeout=10000)
+                    logging.info("Job listings detected!")
+                except PlaywrightTimeoutError as err:
+                    logging.warning(f"No job listings found (possible Cloudflare block). error: {err}")
+
+                logging.info(f"Page content: {page.content()[:500]}")
                 soup = BeautifulSoup(page.content(), "html.parser")
                 browser.close()
 
