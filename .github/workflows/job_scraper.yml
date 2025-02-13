@@ -23,6 +23,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Install Playwright dependencies
+      run: |
+        playwright install chromium
+
+    - name: Wait before starting scraper (Cloudflare mitigation)
+      run: sleep 5
+
     - name: Run job scraper
       env:
         DB_PATH: ./data/job_data.db

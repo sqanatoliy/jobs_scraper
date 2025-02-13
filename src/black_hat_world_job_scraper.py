@@ -7,6 +7,8 @@ from typing import Any, List, Dict
 import cloudscraper
 import requests
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright, Error
+from playwright_stealth import stealth_sync
 
 from config.scraper_config import BlackHatWorldScraperConfig
 from config.settings import TELEGRAM_TOKEN, CHAT_ID, DB_PATH
@@ -61,14 +63,50 @@ class BlackHatWorldJobScraper:
         """Scrapes job offers and returns a list of BlackHatWorldJob objects."""
         job_offers: List[BlackHatWorldJob] = []
         url = self.BASE_URL + "/forums/hire-a-freelancer.76/?order=post_date&direction=desc"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        scraper = cloudscraper.create_scraper()
+        # headers = {
+        #     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        # }
         try:
-            response = scraper.get(url, headers=headers)
-            logging.info(f"Response: {response.text}")
-            soup = BeautifulSoup(response.text, "html.parser")
+            # # Get the page content using cloudscraper
+            # scraper = cloudscraper.create_scraper()
+            # response = scraper.get(url, headers=headers)
+            # logging.info(f"Response: {response.text}")
+            # soup = BeautifulSoup(response.text, "html.parser")
+
+            # Get the page content using playwright
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-gpu",
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-web-security",
+                        "--allow-running-insecure-content",
+                        "--disable-infobars",
+                        "--disable-features=IsolateOrigins,site-per-process",
+                        "--start-maximized",
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                        "--disable-background-networking",
+                        "--disable-renderer-backgrounding",
+                        "--disable-background-timer-throttling",
+                        "--disable-backgrounding-occluded-windows",
+                    ],
+                )
+                context = browser.new_context(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    viewport={"width": 1920, "height": 1080},
+                    java_script_enabled=True,
+                )
+                page = context.new_page()
+                stealth_sync(page)
+                page.goto(url, wait_until="load")
+                page.wait_for_timeout(5000)
+                soup = BeautifulSoup(page.content(), "html.parser")
+                browser.close()
+
             ad_cards = soup.select("div.structItem.structItem--thread.js-inlineModContainer")
             logging.info(f"There are a : {len(ad_cards)} job offers on page.")
             for card in ad_cards:
@@ -83,8 +121,9 @@ class BlackHatWorldJobScraper:
                             job_offers.append(
                                 BlackHatWorldJob(title=title, link=link)
                             )
-        except scraper.RequestsException as err:
-            logging.error(f"An error occurred: {err}")
+        # except scraper.RequestsException as err:
+        except Error as err:
+            logging.error(f"An error occurred: {err.message}")
         except AttributeError as error:
             logging.error("Error extracting job data: %s", error)
         return job_offers
