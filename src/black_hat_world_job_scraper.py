@@ -103,7 +103,9 @@ class BlackHatWorldJobScraper:
                 page = context.new_page()
                 stealth_sync(page)
                 page.goto(url, wait_until="load")
+                logging.info(f"Page URL: {page.url} opened successfully.")
                 page.wait_for_timeout(5000)
+                logging.info(f"Page content: {page.content()}")
                 soup = BeautifulSoup(page.content(), "html.parser")
                 browser.close()
 
