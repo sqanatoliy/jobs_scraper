@@ -177,7 +177,8 @@ def main():
 
     # BLACK HAT WORLD JOB SCRAPING =======================================================
     # Check new freelance offers on BlackHatWorld
-    BlackHatWorldJobScraper(black_hat_world_config).check_and_add_jobs()
+    # :TODO Does not work with GitHub Actions IP. You need to use Proxy
+    # BlackHatWorldJobScraper(black_hat_world_config).check_and_add_jobs()
     # END BLACK HAT WORLD JOB SCRAPING ===================================================
 
 
