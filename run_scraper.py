@@ -162,8 +162,9 @@ def main():
     # Check new Support remote jobs for experience level 0-1 years on DOU
     DouJobScraper(dou_support_remote_config_0_1).check_and_add_jobs()
 
-    # Check new Python jobs for experience level 0-2 years on Djinni
-    DjinniJobScraper(djinni_python_config_0_2).check_and_add_jobs()
+    # !!! moved to another scraper. https://github.com/sqanatoliy/djinni_scraper
+    # # Check new Python jobs for experience level 0-2 years on Djinni
+    # DjinniJobScraper(djinni_python_config_0_2).check_and_add_jobs()
 
     # Check new jobs for no experience level on Djinni
     DjinniJobScraper(djinni_no_exp_config).check_and_add_jobs()
