@@ -196,15 +196,25 @@ class DouJobScraper:
     def _create_telegram_message(self, job: DouJob) -> str:
         """Creates a formatted message for Telegram."""
         experience: str = self.config.experience.replace("+", " ") if self.config.experience else "No experience"
+
+        title = self._clean_text_for_telegram(job.title or "No title")
+        company = self._clean_text_for_telegram(job.company or "No company")
+        category = self._clean_text_for_telegram(job.category or "No category")
+        salary = self._clean_text_for_telegram(job.salary or "N/A")
+        cities = self._clean_text_for_telegram(job.cities or "N/A")
+        sh_info = self._clean_text_for_telegram(job.sh_info or "N/A")
+        date = self._clean_text_for_telegram(job.date or "N/A")
+        experience_clean = self._clean_text_for_telegram(experience)
+
         return (
             "DOU.UA PRESENT \n"
-            f"*Date:* {job.date}\n"
-            f"[{self._clean_text_for_telegram(job.title)}]({job.link}) *{self._clean_text_for_telegram(job.company)}*\n"
-            f"*Experienced:* {self._clean_text_for_telegram(experience)} years\n"
-            f"*Category:* {self._clean_text_for_telegram(job.category)}\n"
-            f"*Salary:* {self._clean_text_for_telegram(job.salary) or 'N/A'}\n"
-            f"*Cities:* {self._clean_text_for_telegram(job.cities)}\n"
-            f"*Info:* {self._clean_text_for_telegram(job.sh_info or 'N/A')}"
+            f"*Date:* {date}\n"
+            f"[{title}]({job.link}) *{company}*\n"
+            f"*Experienced:* {experience_clean} years\n"
+            f"*Category:* {category}\n"
+            f"*Salary:* {salary}\n"
+            f"*Cities:* {cities}\n"
+            f"*Info:* {sh_info}"
         )
 
     def _send_job_to_telegram(self, job: DouJob) -> None:
