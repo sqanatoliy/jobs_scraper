@@ -1,5 +1,6 @@
 """A module to scrape job listings from the DOU website 
 and send notifications to a Telegram chat."""
+import re
 import sqlite3
 import time
 import logging
@@ -81,8 +82,11 @@ class DouJobScraper:
 
     @staticmethod
     def _clean_text_for_telegram(text: str) -> str:
-        """Cleans text for Telegram compatibility."""
-        return text.replace("`", "'").replace("’", "'").strip()
+        """Escape text for Telegram MarkdownV2."""
+        text = text.replace("`", "'").replace("’", "'").strip()
+        # Telegram MarkdownV2 requires escaping all of the following characters:
+        escape_chars = r'_*[]()~`>#+-=|{}.!\\'
+        return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
 
     def get_list_jobs(self) -> List[DouJob]:
         """Scrapes job offers and returns a list of DouJob objects."""
@@ -195,11 +199,11 @@ class DouJobScraper:
         return (
             "DOU.UA PRESENT \n"
             f"*Date:* {job.date}\n"
-            f"[{job.title}]({job.link}) *{job.company}*\n"
-            f"*Experienced:* {experience} years\n"
-            f"*Category:* {job.category}\n"
-            f"*Salary:* {job.salary or 'N/A'}\n"
-            f"*Cities:* {job.cities}\n"
+            f"[{self._clean_text_for_telegram(job.title)}]({job.link}) *{self._clean_text_for_telegram(job.company)}*\n"
+            f"*Experienced:* {self._clean_text_for_telegram(experience)} years\n"
+            f"*Category:* {self._clean_text_for_telegram(job.category)}\n"
+            f"*Salary:* {self._clean_text_for_telegram(job.salary) or 'N/A'}\n"
+            f"*Cities:* {self._clean_text_for_telegram(job.cities)}\n"
             f"*Info:* {self._clean_text_for_telegram(job.sh_info or 'N/A')}"
         )
 
@@ -209,7 +213,7 @@ class DouJobScraper:
         payload: Dict[str, Any] = {
             "chat_id": self.config.chat_id,
             "text": message,
-            "parse_mode": "Markdown",
+            "parse_mode": "MarkdownV2",
             "disable_web_page_preview": True,
         }
 
