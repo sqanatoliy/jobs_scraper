@@ -82,11 +82,20 @@ class DouJobScraper:
 
     @staticmethod
     def _clean_text_for_telegram(text: str) -> str:
-        """Escape text for Telegram MarkdownV2."""
-        text = text.replace("`", "'").replace("’", "'").strip()
-        # Telegram MarkdownV2 requires escaping all of the following characters:
-        escape_chars = r'_*[]()~`>#+-=|{}.!\\'
-        return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
+        """
+        Escapes special characters for Telegram MarkdownV2.
+        See: https://core.telegram.org/bots/api#markdownv2-style
+        """
+        if not text:
+            return ""
+
+        # Telegram MarkdownV2 requires these characters to be escaped
+        escape_chars = r'_*[]()~`>#+-=|{}.!'
+
+        # Replace backslash first to avoid double escaping
+        text = text.replace("\\", "\\\\")
+        text = re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
+        return text.strip()
 
     def get_list_jobs(self) -> List[DouJob]:
         """Scrapes job offers and returns a list of DouJob objects."""
