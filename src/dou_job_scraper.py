@@ -83,18 +83,25 @@ class DouJobScraper:
     @staticmethod
     def _clean_text_for_telegram(text: str) -> str:
         """
-        Escapes special characters for Telegram MarkdownV2.
-        See: https://core.telegram.org/bots/api#markdownv2-style
+        Escapes special characters and formats multiline text for Telegram MarkdownV2.
         """
         if not text:
             return ""
 
-        # Telegram MarkdownV2 requires these characters to be escaped
-        escape_chars = r'_*[]()~`>#+-=|{}.!'
+        # Normalize new lines
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        text = re.sub(r'\n{2,}', r'\n', text)  # Remove extra empty lines
 
-        # Replace backslash first to avoid double escaping
+        # Replace em dash and en dash
+        text = text.replace("—", "-").replace("–", "-")
+
+        # Escape backslash first
         text = text.replace("\\", "\\\\")
+
+        # Escape all markdown v2 special characters
+        escape_chars = r'_*[]()~`>#+-=|{}.!'
         text = re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
+
         return text.strip()
 
     def get_list_jobs(self) -> List[DouJob]:
@@ -211,7 +218,7 @@ class DouJobScraper:
         category = self._clean_text_for_telegram(job.category or "No category")
         salary = self._clean_text_for_telegram(job.salary or "N/A")
         cities = self._clean_text_for_telegram(job.cities or "N/A")
-        sh_info = self._clean_text_for_telegram(job.sh_info or "N/A")
+        sh_info = self._clean_text_for_telegram((job.sh_info or "N/A")[:1000])
         date = self._clean_text_for_telegram(job.date or "N/A")
         experience_clean = self._clean_text_for_telegram(experience)
 
@@ -232,7 +239,7 @@ class DouJobScraper:
         payload: Dict[str, Any] = {
             "chat_id": self.config.chat_id,
             "text": message,
-            "parse_mode": "MarkdownV2",
+            "parse_mode": None,
             "disable_web_page_preview": True,
         }
 
