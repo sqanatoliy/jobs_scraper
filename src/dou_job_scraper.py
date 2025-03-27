@@ -239,7 +239,7 @@ class DouJobScraper:
         payload: Dict[str, Any] = {
             "chat_id": self.config.chat_id,
             "text": message,
-            "parse_mode": None,
+            "parse_mode": "MarkdownV2",
             "disable_web_page_preview": True,
         }
 
