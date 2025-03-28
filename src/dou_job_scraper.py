@@ -211,7 +211,7 @@ class DouJobScraper:
 
     def _create_telegram_message(self, job: DouJob) -> str:
         """Creates a formatted message for Telegram."""
-        experience: str = self.config.experience.replace("+", " ") if self.config.experience else "No experience"
+        experience: str = self.config.experience.replace("-", " ") if self.config.experience else "No experience"
 
         title = self._clean_text_for_telegram(job.title or "No title")
         company = self._clean_text_for_telegram(job.company or "No company")
@@ -223,7 +223,7 @@ class DouJobScraper:
         experience_clean = self._clean_text_for_telegram(experience)
 
         return (
-            "DOU.UA PRESENT \n"
+            "DOU\.UA PRESENT \n"
             f"*Date:* {date}\n"
             f"[{title}]({job.link}) *{company}*\n"
             f"*Experienced:* {experience_clean} years\n"
