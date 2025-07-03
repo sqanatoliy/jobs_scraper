@@ -59,7 +59,7 @@ gl_lg_python_1_3 = GlobalLogicScraperConfig(
 # END GLOBAL LOGIC CONFIGURATIONS ======================================================
 
 # DOU CONFIGURATIONS ==================================================================
-# Configuration for checking new jobs for experience level 0-1 years on DOU
+# Configuration for checking new PYTHON jobs for experience level 0-1 years on DOU
 dou_python_config_0_1 = DouScraperConfig(
     db_path=DB_PATH,
     telegram_token=TELEGRAM_TOKEN,
@@ -68,12 +68,30 @@ dou_python_config_0_1 = DouScraperConfig(
     experience="0-1",
 )
 
-# Configuration for checking new jobs for experience level 1-3 years on DOU
+# Configuration for checking new PYTHON jobs for experience level 1-3 years on DOU
 dou_python_config_1_3 = DouScraperConfig(
     db_path=DB_PATH,
     telegram_token=TELEGRAM_TOKEN,
     chat_id=CHAT_ID,
     category="Python",
+    experience="1-3",
+)
+
+# Configuration for checking new DE jobs for experience level 0-1 years on DOU
+dou_data_engineer_config_0_1 = DouScraperConfig(
+    db_path=DB_PATH,
+    telegram_token=TELEGRAM_TOKEN,
+    chat_id=CHAT_ID,
+    category="Data Engineer",
+    experience="0-1",
+)
+
+# Configuration for checking new DE jobs for experience level 1-3 years on DOU
+dou_data_engineer_config_1_3 = DouScraperConfig(
+    db_path=DB_PATH,
+    telegram_token=TELEGRAM_TOKEN,
+    chat_id=CHAT_ID,
+    category="Data Engineer",
     experience="1-3",
 )
 
@@ -161,6 +179,12 @@ def main():
 
     # Check new Support remote jobs for experience level 0-1 years on DOU
     DouJobScraper(dou_support_remote_config_0_1).check_and_add_jobs()
+
+    # Check new DE jobs for experience level 0-1 years on DOU
+    DouJobScraper(dou_data_engineer_config_0_1).check_and_add_jobs()
+
+    # Check new DE jobs for experience level 1-3 years on DOU
+    DouJobScraper(dou_data_engineer_config_1_3).check_and_add_jobs()
 
     # !!! All djinni scope moved to another scraper. https://github.com/sqanatoliy/djinni_scraper
     # # Check new Python jobs for experience level 0-2 years on Djinni
