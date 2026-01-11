@@ -82,7 +82,7 @@ dou_data_engineer_config_0_1 = DouScraperConfig(
     db_path=DB_PATH,
     telegram_token=TELEGRAM_TOKEN,
     chat_id=CHAT_ID,
-    category="Data Engineer",
+    category="Data+Engineer",
     experience="0-1",
 )
 
@@ -91,7 +91,7 @@ dou_data_engineer_config_1_3 = DouScraperConfig(
     db_path=DB_PATH,
     telegram_token=TELEGRAM_TOKEN,
     chat_id=CHAT_ID,
-    category="Data Engineer",
+    category="Data+Engineer",
     experience="1-3",
 )
 
