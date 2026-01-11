@@ -222,7 +222,7 @@ class DouJobScraper:
             experience=self.config.experience,
         )
         logging.info(f"No one! jobs found at Dou {newest_job.category} category with experience {self.config.experience}.")
-        self._send_job_to_telegram(newest_job)
+        # self._send_job_to_telegram(newest_job)
         return [newest_job]
 
     def _create_telegram_message(self, job: DouJob) -> str:
