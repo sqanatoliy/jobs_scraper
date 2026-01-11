@@ -4,6 +4,7 @@ import re
 import sqlite3
 import time
 import logging
+from datetime import date
 from typing import Any, List, Dict, Optional
 
 import requests
@@ -180,34 +181,48 @@ class DouJobScraper:
         new_jobs: list = []
         job_offers: List[DouJob] = self.get_list_jobs()
 
-        with sqlite3.connect(self.config.db_path) as conn:
-            cursor: sqlite3.Cursor = conn.cursor()
-            for job in job_offers:
-                try:
-                    job: DouJob = self._normalize_job_data(job)
+        if job_offers:
+            with sqlite3.connect(self.config.db_path) as conn:
+                cursor: sqlite3.Cursor = conn.cursor()
+                for job in job_offers:
+                    try:
+                        job: DouJob = self._normalize_job_data(job)
 
-                    cursor.execute("""
-                        SELECT 1 FROM dou_jobs WHERE title = :title AND date = :date AND company = :company AND category = :category
-                    """, job.__dict__)
-                    if not cursor.fetchone():
-                        try:
-                            cursor.execute("""
-                                INSERT INTO dou_jobs (date, title, link, company, salary, cities, sh_info, category, experience)
-                                VALUES (:date, :title, :link, :company, :salary, :cities, :sh_info, :category, :experience)
-                            """, job.__dict__)
-                            new_jobs.append(job)
-                            self._send_job_to_telegram(job)
-                        except sqlite3.IntegrityError as e:
-                            logging.warning("Duplicate job entry detected: %s - %s - %s", job.title, job.company, e)
-                        except sqlite3.Error as e:
-                            logging.error("Error inserting job into database: %s - %s", job, e)
-                    conn.commit()
-                except Exception as e:  # Catch all exceptions
-                    logging.error("An unexpected error occurred: %s", e)
-                    conn.rollback()
-        if not new_jobs:
-            logging.info(f"No new jobs found at Dou {job.category} category with experience {self.config.experience}.")
-        return new_jobs
+                        cursor.execute("""
+                            SELECT 1 FROM dou_jobs WHERE title = :title AND date = :date AND company = :company AND category = :category
+                        """, job.__dict__)
+                        if not cursor.fetchone():
+                            try:
+                                cursor.execute("""
+                                    INSERT INTO dou_jobs (date, title, link, company, salary, cities, sh_info, category, experience)
+                                    VALUES (:date, :title, :link, :company, :salary, :cities, :sh_info, :category, :experience)
+                                """, job.__dict__)
+                                new_jobs.append(job)
+                                self._send_job_to_telegram(job)
+                            except sqlite3.IntegrityError as e:
+                                logging.warning("Duplicate job entry detected: %s - %s - %s", job.title, job.company, e)
+                            except sqlite3.Error as e:
+                                logging.error("Error inserting job into database: %s - %s", job, e)
+                        conn.commit()
+                    except Exception as e:  # Catch all exceptions
+                        logging.error("An unexpected error occurred: %s", e)
+                        conn.rollback()
+            if not new_jobs:
+                logging.info(f"No new jobs found at Dou {job.category} category with experience {self.config.experience}.")
+            return new_jobs
+        newest_job: DouJob = DouJob(
+            date=date.today().isoformat(),
+            title="Не знайдено жодної! вакансії",
+            link=self.full_url,
+            company=None,
+            salary=None,
+            cities=None,
+            sh_info=None,
+            category=self.config.category,
+            experience=self.config.experience,
+        )
+        logging.info(f"No one! jobs found at Dou {newest_job.category} category with experience {self.config.experience}.")
+        return [newest_job]
 
     def _create_telegram_message(self, job: DouJob) -> str:
         """Creates a formatted message for Telegram."""
